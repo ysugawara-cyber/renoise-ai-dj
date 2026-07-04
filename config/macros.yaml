@@ -1,0 +1,69 @@
+# config/macros.yaml
+# Named macros bound to MIDImix knob row (CC 10..17, ch 1).
+# A macro is resolved to one or more /ai/fx/param OSC messages by osc_bridge.py.
+
+macros:
+  - name: bpm_coarse
+    cc: 10
+    description: Tempo coarse (120..240 BPM)
+    range: [120, 240]
+    osc: /ai/bpm
+
+  - name: swing
+    cc: 11
+    description: Global swing amount
+    range: [0.0, 1.0]
+    osc: /ai/swing
+
+  - name: master_volume
+    cc: 12
+    description: Master output volume
+    range: [0.0, 1.0]
+    target:
+      track: master
+      param: volume
+
+  - name: send_reverb
+    cc: 13
+    description: Reverb send (FX #4 on Drum bus)
+    range: [0.0, 1.0]
+    target:
+      track: "7"           # fx track
+      fx_index: 0
+      param_index: 0
+
+  - name: send_delay
+    cc: 14
+    description: Delay send (FX #5 on Drum bus)
+    range: [0.0, 1.0]
+    target:
+      track: "7"
+      fx_index: 1
+      param_index: 0
+
+  - name: filter_cutoff
+    cc: 15
+    description: Master filter cutoff (#_EQ on master)
+    range: [0.0, 1.0]
+    target:
+      track: master
+      fx_index: 0          # assume #EQ as first device
+      param_index: 1
+
+  - name: distortion
+    cc: 16
+    description: Distortion amount on break bus
+    range: [0.0, 1.0]
+    target:
+      track: "2"
+      fx_index: 0
+      param_index: 1
+
+  - name: bitcrush
+    cc: 17
+    description: Bitcrush amount on fx bus
+    range: [0.0, 1.0]
+    target:
+      track: "7"
+      fx_index: 2
+      param_index: 0

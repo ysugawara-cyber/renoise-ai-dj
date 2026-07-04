@@ -1,0 +1,46 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/glm-5.2",
+  "small_model": "opencode/gpt-5-nano",
+  "default_agent": "dj_live_pads",
+  "instructions": [
+    "AGENTS.md",
+    ".opencode/rules/music_constraints.md",
+    ".opencode/rules/osc_protocol.md",
+    ".opencode/rules/midi_mapping.md"
+  ],
+  "permission": {
+    "bash": "allow",
+    "edit": "allow",
+    "write": "allow",
+    "read": "allow"
+  },
+  "watcher": {
+    "ignore": [
+      "host/state/**",
+      "tools/AIDJ/logs/**",
+      "tools/AIDJ/generated/**",
+      "host/osc/outbox/**",
+      "host/osc/sent/**",
+      "*.xrns",
+      "*.tmp"
+    ]
+  },
+  "snapshot": true,
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 12000
+  },
+  "provider": {
+    "opencode-go": {
+      "options": {
+        "timeout": 600000,
+        "chunkTimeout": 60000,
+        "setCacheKey": true
+      }
+    }
+  },
+  "share": "disabled",
+  "autoupdate": "notify"
+}

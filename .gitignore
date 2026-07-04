@@ -1,0 +1,29 @@
+# Mac track files (ignore)
+.DS_Store
+*.tmp
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Renoise
+*.xrns.bak
+*.xrns.tmp
+
+# state (runtime, not committed)
+host/state/session.json
+host/state/session.lock
+host/osc/sent/*
+host/osc/outbox/*
+
+# logs
+tools/AIDJ/logs/*
+*.log
+
+# generated content
+tools/AIDJ/generated/*
+tools/AIDJ/AIDJ-TEMPLATE.xrs.xrns
+*.xrns

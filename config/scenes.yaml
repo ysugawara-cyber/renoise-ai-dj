@@ -1,0 +1,39 @@
+# config/scenes.yaml
+# Declares the song's sequencer scene mapping.
+# slot index in Renoise corresponds to scene id sent via /ai/scene.
+
+scenes:
+  - id: 1
+    name: intro_amen_loop
+    bpm: 174
+    description: Opening amen break loop, pads only,Introduced kick after 4 bars
+    tracks: [2, 5, 1]
+    duration_bars: 32
+
+  - id: 2
+    name: drop1_breakcore_full
+    bpm: 180
+    description: Full breakcore drop with reese bass, lead stab
+    tracks: [1, 2, 3, 4]
+    duration_bars: 32
+
+  - id: 3
+    name: hardcore_kick_run
+    bpm: 210
+    description: Pumping hardcore kick under sustained amen break
+    tracks: [1, 3, 4, 5]
+    duration_bars: 32
+
+  - id: 4
+    name: breakdown_ambient
+    bpm: 140
+    description: Half-time breakdown; pads only, swapping recombinant breaks
+    tracks: [2, 5]
+    duration_bars: 32
+
+  - id: 5
+    name: outro_distorted
+    bpm: 220
+    description: Distorted gabber kick + fading breaks, exit
+    tracks: [1, 2, 3]
+    duration_bars: 32

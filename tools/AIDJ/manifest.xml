@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RenoiseScriptingTool>
+  <ApiVersion>6.2</ApiVersion>
+  <Id>com.aidj.live</Id>
+  <Version>0.1.0</Version>
+  <Name>AIDJ</Name>
+  <Author>AIDJ Live System</Author>
+  <Description>OSC-driven live coding bridge for AI DJ performance.</Description>
+  <Category>Live Performance</Category>
+  <Homepage>https://github.com/anomalyco/opencode</Homepage>
+  <Icon>logo.png</Icon>
+</RenoiseScriptingTool>

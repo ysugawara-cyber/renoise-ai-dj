@@ -1,0 +1,42 @@
+# config/fx_mapping.yaml
+# Per-track FX device slot declarations. Used by the MIDImix fader banks
+# to map CC values to specific FX device params.
+
+tracks:
+  "1":  # drums
+    fx:
+      - name: "Comp"
+        device: "#Compressor"
+        params: [threshold, ratio, attack, release]
+      - name: "Rev"
+        device: "#Reverb"
+        params: [dry_wet, room_size, decay]
+  "2":  # breaks
+    fx:
+      - name: "Dist"
+        device: "#Distortion"
+        params: [drive, tone, dry_wet]
+      - name: "Delay"
+        device: "#Delay"
+        params: [time, feedback, dry_wet]
+  "3":  # bass
+    fx:
+      - name: "Filter"
+        device: "#Filter"
+        params: [cutoff, resonance]
+  "4":  # lead
+    fx: []
+  "5":  # pads
+    fx:
+      - name: "Rev"
+        device: "#Reverb"
+        params: [dry_wet, room_size]
+  "6":  # stabs
+    fx: []
+  "7":  # fx
+    fx:
+      - name: "Bit"
+        device: "#Cabinet"        # placeholder - real device TBD on template
+        params: [drive]
+  "8":  # vox
+    fx: []
