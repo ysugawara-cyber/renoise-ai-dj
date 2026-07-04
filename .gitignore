@@ -4,6 +4,11 @@
 *.swp
 *.swo
 
+# opencode config (local only)
+.opencode/
+AGENTS.md
+opencode.json
+
 # Python
 __pycache__/
 *.pyc
