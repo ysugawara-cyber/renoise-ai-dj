@@ -86,14 +86,21 @@ local function handle_mix(bytes)
   if not msg then return end
   if msg.is_note_on then
     local pw = require "pattern_writer"
-    local tn = math.floor((msg.note - 1) / 3) + 1
-    if tn >= 1 and tn <= 8 then
-      local tk = renoise.song():track(tn)
-      local active = (tk.mute_state == renoise.Track.MUTE_STATE_MUTED)
-      pw.set_mute(tostring(tn), active and 0 or 1)
+    if msg.note >= 1 and msg.note <= 24 then
+      local tn = math.floor((msg.note - 1) / 3) + 1
+      if tn >= 1 and tn <= 8 then
+        local tk = renoise.song():track(tn)
+        if msg.note % 3 == 0 then
+          pw.set_solo(tostring(tn), tk.solo_state and 0 or 1)
+        else
+          local active = (tk.mute_state == renoise.Track.MUTE_STATE_MUTED)
+          pw.set_mute(tostring(tn), active and 0 or 1)
+        end
+      end
     end
   elseif msg.type == "cc" then
     local knob_cc = {[16]=0, [20]=1, [24]=2, [28]=3, [46]=4, [50]=5, [54]=6, [58]=7}
+    local fader_cc = {[19]=1, [23]=2, [27]=3, [31]=4, [49]=5, [53]=6, [57]=7, [61]=8}
     local mi = knob_cc[msg.cc]
     if mi then
       local pw = require "pattern_writer"
@@ -106,7 +113,8 @@ local function handle_mix(bytes)
         renoise.song().transport.groove_enabled = true
         renoise.song().transport.groove_amounts = {sw, sw, sw, sw}
       elseif mi == 2 then
-        pw.set_volume("master", v)
+        local pn = math.floor((msg.value * 2000 / 127) - 1000)
+        pw.set_pan("master", pn)
       elseif mi == 3 then
         pw.set_fx_param("7", 0, 0, v)
       elseif mi == 4 then
@@ -117,6 +125,17 @@ local function handle_mix(bytes)
         pw.set_fx_param("2", 0, 1, v)
       elseif mi == 7 then
         pw.set_fx_param("7", 2, 0, v)
+      end
+    elseif msg.cc == 62 then
+      local pw = require "pattern_writer"
+      local v = math.floor(msg.value * 1000 / 127)
+      pw.set_volume("master", v)
+    else
+      local tn = fader_cc[msg.cc]
+      if tn then
+        local pw = require "pattern_writer"
+        local v = math.floor(msg.value * 1000 / 127)
+        pw.set_volume(tostring(tn), v)
       end
     end
   end
