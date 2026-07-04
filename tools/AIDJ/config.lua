@@ -11,12 +11,10 @@ local M = {
   dry_run_default     = true,
 }
 
--- WSL IP auto-detection:
--- osc_bridge.py writes host/state/wsl_ip.txt on startup. If that file is
--- accessible from the Renoise tool's bundle_path (../../../), use it.
--- Falls back to 127.0.0.1 for non-WSL setups.
+-- osc_bridge.py writes wsl_ip.txt into the tool directory on startup.
+-- Read it from our own bundle_path if available.
 local function detect_wsl_ip(tool_root)
-  local f = io.open(tool_root .. "/../../../host/state/wsl_ip.txt", "r")
+  local f = io.open(tool_root .. "/wsl_ip.txt", "r")
   if f then
     local ip = f:read("*l")
     f:close()
@@ -25,7 +23,7 @@ local function detect_wsl_ip(tool_root)
       return ip
     end
   end
-  print("[AIDJ config] WSL IP file not found, using 127.0.0.1")
+  print("[AIDJ config] wsl_ip.txt not found, using 127.0.0.1")
   return "127.0.0.1"
 end
 

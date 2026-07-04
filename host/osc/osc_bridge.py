@@ -55,6 +55,8 @@ STATE = ROOT / "host/state/session.json"
 LOCK = ROOT / "host/state/session.lock"
 MACROS_YAML = ROOT / "config/macros.yaml"
 WSL_IP_FILE = ROOT / "host/state/wsl_ip.txt"
+RENOISE_DATA = Path("/mnt/c/Users/y_sugawara/AppData/Roaming/Renoise")
+TOOL_DIR: Path | None = None
 
 
 def _detect_wsl_ip() -> str:
@@ -71,7 +73,7 @@ def _detect_wsl_ip() -> str:
 
 
 def _detect_windows_host_ip() -> str:
-    """Return the Windows host IP as visible from WSL (the default gateway)."""
+    """Returns the Windows host IP as visible from WSL (the default gateway)."""
     try:
         out = subprocess.check_output(
             ["ip", "route", "show", "default"], text=True, timeout=2)
@@ -83,8 +85,21 @@ def _detect_windows_host_ip() -> str:
     return "127.0.0.1"
 
 
+def _detect_tool_dir() -> Path | None:
+    """Find the installed AIDJ tool directory under Renoise AppData."""
+    if not RENOISE_DATA.is_dir():
+        return None
+    for p in RENOISE_DATA.iterdir():
+        if p.is_dir():
+            candidate = p / "Scripts/Tools/com.aidj.live.xrnx"
+            if candidate.is_dir():
+                return candidate
+    return None
+
+
 WSL_IP = _detect_wsl_ip()
 RENOISE_HOST = _detect_windows_host_ip()
+TOOL_DIR = _detect_tool_dir()
 RENOISE_PORT = 8080
 BRIDGE_LISTEN_PORT = 8088
 
@@ -93,6 +108,9 @@ SENT.mkdir(parents=True, exist_ok=True)
 STATE.parent.mkdir(parents=True, exist_ok=True)
 LOCK.touch(exist_ok=True)
 WSL_IP_FILE.write_text(WSL_IP)
+if TOOL_DIR:
+    (TOOL_DIR / "wsl_ip.txt").write_text(WSL_IP)
+    print("wrote wsl_ip.txt to tool dir: " + str(TOOL_DIR))
 
 
 def _load_macros() -> dict[str, dict]:
