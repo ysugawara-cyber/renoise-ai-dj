@@ -21,6 +21,7 @@ __pycache__/
 # state (runtime, not committed)
 host/state/session.json
 host/state/session.lock
+host/state/wsl_ip.txt
 host/osc/sent/*
 host/osc/outbox/*
 

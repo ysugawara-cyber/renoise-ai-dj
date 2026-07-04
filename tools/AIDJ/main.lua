@@ -7,6 +7,7 @@ local tool_dir = renoise.tool().bundle_path
 package.path = package.path .. ";" .. tool_dir .. "/?.lua"
 
 local config = require "config"
+config.init(tool_dir)
 package.aidj = package.aidj or {}
 package.aidj.config = config
 

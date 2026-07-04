@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import time
 import uuid
 import threading
@@ -53,15 +54,45 @@ SENT = ROOT / "host/osc/sent"
 STATE = ROOT / "host/state/session.json"
 LOCK = ROOT / "host/state/session.lock"
 MACROS_YAML = ROOT / "config/macros.yaml"
+WSL_IP_FILE = ROOT / "host/state/wsl_ip.txt"
 
-RENOISE_HOST = "172.26.144.1"  # Windows host (WSL gateway)
-RENOISE_PORT = 8080  # Tool's own LuaSocket UDP server (not Renoise built-in OSC at 8000)
+
+def _detect_wsl_ip() -> str:
+    """Return this WSL instance's IP visible from Windows."""
+    try:
+        out = subprocess.check_output(
+            ["hostname", "-I"], text=True, timeout=2)
+        ip = out.strip().split()[0]
+        if ip.count(".") == 3:
+            return ip
+    except Exception:
+        pass
+    return "127.0.0.1"
+
+
+def _detect_windows_host_ip() -> str:
+    """Return the Windows host IP as visible from WSL (the default gateway)."""
+    try:
+        out = subprocess.check_output(
+            ["ip", "route", "show", "default"], text=True, timeout=2)
+        for part in out.split():
+            if part.count(".") == 3:
+                return part
+    except Exception:
+        pass
+    return "127.0.0.1"
+
+
+WSL_IP = _detect_wsl_ip()
+RENOISE_HOST = _detect_windows_host_ip()
+RENOISE_PORT = 8080
 BRIDGE_LISTEN_PORT = 8088
 
 OUTBOX.mkdir(parents=True, exist_ok=True)
 SENT.mkdir(parents=True, exist_ok=True)
 STATE.parent.mkdir(parents=True, exist_ok=True)
 LOCK.touch(exist_ok=True)
+WSL_IP_FILE.write_text(WSL_IP)
 
 
 def _load_macros() -> dict[str, dict]:
@@ -271,7 +302,9 @@ def main() -> None:
     _start_outbox_consumer(renoise_client)
     _start_status_server()
     _start_midi_macro_listener(renoise_client)
-    print(f"osc_bridge started -- target {RENOISE_HOST}:{RENOISE_PORT}")
+    print(f"osc_bridge started")
+    print(f"  WSL IP:  {WSL_IP}  (Renoise -> {WSL_IP}:{BRIDGE_LISTEN_PORT})")
+    print(f"  Windows: {RENOISE_HOST}  (bridge -> {RENOISE_HOST}:{RENOISE_PORT})")
     try:
         while True:
             time.sleep(60)
