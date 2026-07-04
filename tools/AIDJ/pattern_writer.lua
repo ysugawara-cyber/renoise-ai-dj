@@ -25,7 +25,8 @@ end
 
 local function cur_pattern_track(track_n)
   local seq = cur_pattern_seq()
-  return renoise.song():pattern(seq):track(track_n)
+  local pat = renoise.song():pattern(seq)
+  return pat, pat:track(track_n)
 end
 
 function M.init(config, ctx)
@@ -64,8 +65,8 @@ function M.write_row(track_id, instrument, note_index, note, velocity, fx_cmds)
   if not tn then return false end
 
   local line_idx = tonumber(note_index) or 0
-  local pt = cur_pattern_track(tn)
-  if line_idx < 0 or line_idx >= pt.number_of_lines then
+  local pat, pt = cur_pattern_track(tn)
+  if line_idx < 0 or line_idx >= pat.number_of_lines then
     renoise.app():show_warning("AIDJ: write_row out of range " .. line_idx)
     return false
   end
@@ -91,10 +92,10 @@ end
 function M.clear_range(track_id, start_row, row_count)
   local tn = track_num(track_id)
   if not tn then return false end
-  local pt = cur_pattern_track(tn)
+  local pat, pt = cur_pattern_track(tn)
   for i = 0, (row_count or 1) - 1 do
     local r = start_row + 1 + i
-    if r > 0 and r <= pt.number_of_lines then
+    if r > 0 and r <= pat.number_of_lines then
       pt:line(r):clear()
     end
   end
@@ -115,22 +116,23 @@ function M.one_shot(track_id, note, velocity, length_lines)
 
   local song = renoise.song()
   local pos = song.transport.playback_pos
-  local pt = song:pattern(pos.sequence):track(tn)
+  local pat = song:pattern(pos.sequence)
+  local pt = pat:track(tn)
 
   local row = pos.line + 1
-  if row > pt.number_of_lines then row = 1 end
+  if row > pat.number_of_lines then row = 1 end
   local line = pt:line(row)
   local col = line:note_column(1)
   col.note_string  = tostring(note or "C-4")
   col.volume_value = math.max(0, math.min(127, tonumber(velocity) or 100))
 
   if length_lines and tonumber(length_lines) > 1 then
-    local end_row = math.min(row + tonumber(length_lines), pt.number_of_lines)
+    local end_row = math.min(row + tonumber(length_lines), pat.number_of_lines)
     for r = row + 1, end_row do
       local ec = pt:line(r):note_column(1)
       ec.note_string = "---"
     end
-    if end_row + 1 <= pt.number_of_lines then
+    if end_row + 1 <= pat.number_of_lines then
       pt:line(end_row + 1):note_column(1).note_string = "OFF"
     end
   end
