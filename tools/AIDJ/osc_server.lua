@@ -29,7 +29,7 @@ function M.init(config, ctx)
     local state = a[1]
     local t = renoise.song().transport
     if state == "play" then
-      t:start(renoise.Transport.PLAYMODE_START_PATTERN)
+      t:start(1)
     elseif state == "stop" then
       t:stop()
     elseif state == "loop_on" then

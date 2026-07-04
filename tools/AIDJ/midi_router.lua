@@ -51,7 +51,7 @@ local function handle_apc(bytes)
   if msg.is_note_on then
     -- FADER CTRL buttons (notes 100-107): transport
     if msg.note == 100 then
-      renoise.song().transport:start(renoise.Transport.PLAYMODE_START_PATTERN)
+      renoise.song().transport:start(1)
     elseif msg.note == 101 then
       renoise.song().transport:stop()
     -- SCENE LAUNCH buttons (notes 112-119): scene 1-8
