@@ -33,8 +33,17 @@ for _, pat in ipairs(FORBIDDEN) do
   end
 end
 
--- load() in 5.1 returns (chunk, err); we don't pass an env so it compiles in global scope.
-local fn, err = loadstring(src, path)
+-- load() replaces loadstring() in Lua 5.2+; Renoise uses Lua 5.1 (loadstring),
+-- stock Lua 5.4 uses load(). Support both.
+local fn, err
+if load then
+  fn, err = load(src, path, "t")
+elseif loadstring then
+  fn, err = loadstring(src, path)
+else
+  print("no loader available")
+  os.exit(1)
+end
 if not fn then
   print("syntax error: " .. tostring(err))
   os.exit(1)
