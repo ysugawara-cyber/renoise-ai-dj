@@ -19,11 +19,11 @@ local function detect_wsl_ip(tool_root)
     local ip = f:read("*l")
     f:close()
     if ip and #ip > 0 then
-      print("[AIDJ config] detected WSL IP: " .. ip)
+      renoise.app():show_status("[AIDJ config] detected WSL IP: " .. ip)
       return ip
     end
   end
-  print("[AIDJ config] wsl_ip.txt not found, using 127.0.0.1")
+  renoise.app():show_status("[AIDJ config] wsl_ip.txt not found, using 127.0.0.1")
   return "127.0.0.1"
 end
 
