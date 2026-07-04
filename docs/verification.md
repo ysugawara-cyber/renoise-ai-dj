@@ -20,7 +20,10 @@ host/.venv/bin/python host/osc/verify_roundtrip.py
 - `/ai/bpm i:<X>` → `state.bpm == X`
 - `/ai/mixer/mute "1" 1` → `tracks.1.mute == true`
 - `/ai/mixer/solo "1" 1` → `tracks.1.solo == true`
-- `/ai/mixer/volume "1" 500` → `tracks.1.volume` が 0.34..0.38
+- `/ai/mixer/volume "1" 500` → `tracks.1.volume` が 0.49..0.51
+  （`pattern_writer.lua` が `v/1000 * 1.415` で postfx_volume を設定→
+  `status_publisher` が生値をブロードキャスト→`osc_bridge.py` が `/1.415` で正規化→
+  net `500/1000 = 0.5`）
 
 全 4 / 4 で PASS なら ok。1 つでも FAIL の場合は該当 OSC handler の
 `/1000` 復元ミスを疑う（`tools/AIDJ/osc_server.lua`, `pattern_writer.lua`）。

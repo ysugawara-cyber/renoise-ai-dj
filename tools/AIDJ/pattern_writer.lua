@@ -9,8 +9,14 @@ local _locked_rows = {}  -- {track_id_num -> { [row] = tui_id }}
 
 local function track_num(track_id)
   local n = tonumber(track_id)
-  if not n or n < 1 or n > #renoise.song().tracks then return nil end
-  return n
+  if n and n >= 1 and n <= #renoise.song().tracks then return n end
+  if type(track_id) == "string" then
+    local lower = string.lower(track_id)
+    if lower == "master" then
+      return #renoise.song().tracks
+    end
+  end
+  return nil
 end
 
 local function cur_pattern_seq()
@@ -139,7 +145,7 @@ function M.set_volume(track_id, v)
   local tn = track_num(track_id)
   if not tn then return false end
   local tr = renoise.song():track(tn)
-  tr.postfx_volume.value = math.max(0, math.min(1.415, ((tonumber(v) or 1000) / 1000) * 1.415))
+  tr.postfx_volume.value = math.max(0, math.min(1.41253, ((tonumber(v) or 1000) / 1000) * 1.41253))
   return true
 end
 

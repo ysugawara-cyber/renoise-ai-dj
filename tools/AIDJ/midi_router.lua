@@ -10,7 +10,7 @@
 --   (no .is_note_on / .cc / .value object fields)
 
 local M = {}
-local _ctx, _apc_in, _apc_out, _mix_in = nil, nil, nil, nil
+local _ctx, _apc_in, _apc_out, _mix_in, _apc_lit = nil, nil, nil, nil, nil
 
 -- APC pad note numbers in Generic MIDI mode: 56..63 row0, 64..71 row1, ...
 -- Formula: note = 56 + (row * 8) + col
@@ -54,7 +54,14 @@ local function handle_apc(bytes)
     if row == 0 then
       local sl = require "scene_launcher"
       sl.launch(col + 1)
-      M.feedback_apc(msg.note, 1)  -- green
+      if _apc_out then
+        local pad_idx = (7 - row) * 8 + col
+        if _apc_lit and _apc_lit ~= pad_idx then
+          _apc_out:send {0x90, _apc_lit, 0}
+        end
+        _apc_lit = pad_idx
+        _apc_out:send {0x96, pad_idx, 0x15}
+      end
     end
   elseif msg.type == "cc" then
     local pw = require "pattern_writer"
@@ -70,18 +77,39 @@ local function handle_mix(bytes)
   if not msg then return end
   if msg.is_note_on then
     local pw = require "pattern_writer"
-    -- MIDImix MUTE buttons Note 1..8 -> Track mute toggle
-    if msg.note >= 1 and msg.note <= 8 then
-      local tk = renoise.song():track(msg.note)
+    local tn = math.floor((msg.note - 1) / 3) + 1
+    if tn >= 1 and tn <= 8 then
+      local tk = renoise.song():track(tn)
       local active = (tk.mute_state == renoise.Track.MUTE_STATE_MUTED)
-      pw.set_mute(tostring(msg.note), active and 0 or 1)
-    -- MIDImix SOLO buttons Note 16..23 -> Track solo toggle
-    elseif msg.note >= 16 and msg.note <= 23 then
-      pw.set_solo(tostring(msg.note - 15), 1)
+      pw.set_mute(tostring(tn), active and 0 or 1)
     end
   elseif msg.type == "cc" then
-    -- Macro knobs (CC 10..17) are handled by osc_bridge.py -> /ai/fx/macro.
-    -- MIDImix master slider (CC 7) -> master volume handled in Renoise MIDI Map.
+    local knob_cc = {[16]=0, [20]=1, [24]=2, [28]=3, [46]=4, [50]=5, [54]=6, [58]=7}
+    local mi = knob_cc[msg.cc]
+    if mi then
+      local pw = require "pattern_writer"
+      local v = math.floor(msg.value * 1000 / 127)
+      if mi == 0 then
+        local bpm = math.floor(120 + 120 * v / 1000)
+        renoise.song().transport.bpm = math.max(120, math.min(240, bpm))
+      elseif mi == 1 then
+        local sw = math.max(0, math.min(1, v / 1000))
+        renoise.song().transport.groove_enabled = true
+        renoise.song().transport.groove_amounts = {sw, sw, sw, sw}
+      elseif mi == 2 then
+        pw.set_volume("master", v)
+      elseif mi == 3 then
+        pw.set_fx_param("7", 0, 0, v)
+      elseif mi == 4 then
+        pw.set_fx_param("7", 1, 0, v)
+      elseif mi == 5 then
+        pw.set_fx_param("master", 0, 1, v)
+      elseif mi == 6 then
+        pw.set_fx_param("2", 0, 1, v)
+      elseif mi == 7 then
+        pw.set_fx_param("7", 2, 0, v)
+      end
+    end
   end
 end
 
@@ -89,11 +117,19 @@ function M.init(config, ctx)
   _ctx = ctx
   for _, name in ipairs(renoise.Midi.available_input_devices()) do
     local lower = string.lower(name)
-    if string.match(lower, "apc.mini") then
-      _apc_in  = renoise.Midi.create_input_device(name, handle_apc, function() end)
-      _apc_out = renoise.Midi.create_output_device(name)
-    elseif string.match(lower, "midi.mix") then
+    if string.match(lower, "apc.mini") and not _apc_in then
+      _apc_in = renoise.Midi.create_input_device(name, handle_apc, function() end)
+    elseif string.match(lower, "midi.mix") and not _mix_in then
       _mix_in = renoise.Midi.create_input_device(name, handle_mix, function() end)
+    end
+  end
+  for _, name in ipairs(renoise.Midi.available_output_devices()) do
+    local lower = string.lower(name)
+    if string.match(lower, "apc.mini") and not _apc_out then
+      local ok, dev = pcall(renoise.Midi.create_output_device, name)
+      if ok and dev then
+        _apc_out = dev
+      end
     end
   end
   if not _apc_in  then renoise.app():show_warning("AIDJ: APC mini not found") end
@@ -104,12 +140,13 @@ function M.deinit()
   if _apc_in  then _apc_in:close()  end
   if _apc_out then _apc_out:close() end
   if _mix_in  then _mix_in:close()  end
-  _apc_in, _apc_out, _mix_in = nil, nil, nil
+  _apc_in, _apc_out, _mix_in, _apc_lit = nil, nil, nil, nil
 end
 
 function M.feedback_apc(note, color_mode)
   if not _apc_out then return end
-  _apc_out:send { string.char(0x90, note, color_mode) }
+  local vel = color_mode or 1
+  _apc_out:send {0x90, note, vel}
 end
 
 return M
