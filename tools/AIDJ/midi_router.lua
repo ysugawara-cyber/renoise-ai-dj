@@ -12,12 +12,11 @@
 local M = {}
 local _ctx, _apc_in, _apc_out, _mix_in, _apc_lit = nil, nil, nil, nil, nil
 
--- APC pad note numbers in Generic MIDI mode: 56..63 row0, 64..71 row1, ...
--- Formula: note = 56 + (row * 8) + col
+-- APC pad note numbers: bottom row = 0-7, top row = 56-63
+-- Formula: note = (7 - row) * 8 + col  =>  row = 7 - floor(note/8), col = note % 8
 local function apc_row_col(note)
-  if note < 56 or note > 119 then return nil, nil end
-  local o = note - 56
-  return math.floor(o / 8), (o % 8)
+  if note < 0 or note > 63 then return nil, nil end
+  return 7 - math.floor(note / 8), (note % 8)
 end
 
 -- parse a raw MIDI bytes array into a small table
@@ -50,22 +49,32 @@ local function handle_apc(bytes)
   local msg = parse(bytes)
   if not msg then return end
   if msg.is_note_on then
-    local row, col = apc_row_col(msg.note)
-    if row == 0 then
+    -- FADER CTRL buttons (notes 100-107): transport
+    if msg.note == 100 then
+      renoise.song().transport:start(renoise.Transport.PLAYMODE_START_PATTERN)
+    elseif msg.note == 101 then
+      renoise.song().transport:stop()
+    -- SCENE LAUNCH buttons (notes 112-119): scene 1-8
+    elseif msg.note >= 112 and msg.note <= 119 then
       local sl = require "scene_launcher"
-      sl.launch(col + 1)
-      if _apc_out then
-        local pad_idx = (7 - row) * 8 + col
-        if _apc_lit and _apc_lit ~= pad_idx then
-          _apc_out:send {0x90, _apc_lit, 0}
+      sl.launch(msg.note - 111)
+    -- Pad grid (notes 0-63): row 0 = scene launch
+    else
+      local row, col = apc_row_col(msg.note)
+      if row and row == 0 then
+        local sl = require "scene_launcher"
+        sl.launch(col + 1)
+        if _apc_out then
+          if _apc_lit and _apc_lit ~= msg.note then
+            _apc_out:send {0x90, _apc_lit, 0}
+          end
+          _apc_lit = msg.note
+          _apc_out:send {0x96, msg.note, 0x15}
         end
-        _apc_lit = pad_idx
-        _apc_out:send {0x96, pad_idx, 0x15}
       end
     end
   elseif msg.type == "cc" then
     local pw = require "pattern_writer"
-    -- APC sliders CC 48..55 -> Track 1..8 volume
     if msg.cc >= 48 and msg.cc <= 55 then
       pw.set_volume(tostring(msg.cc - 47), math.floor(msg.value * 1000 / 127))
     end
