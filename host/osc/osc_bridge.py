@@ -230,8 +230,11 @@ def _start_outbox_consumer(client: SimpleUDPClient) -> threading.Thread:
                     print(f"-> {path} {args}")
                 except Exception as e:
                     print("outbox send err:", p.name, e)
-                    err = p.with_suffix(".err")
-                    shutil.move(str(p), str(SENT / err.name))
+                    try:
+                        err = p.with_suffix(".err")
+                        shutil.move(str(p), str(SENT / err.name))
+                    except Exception:
+                        pass
             time.sleep(0.01)
     t = threading.Thread(target=loop, daemon=True, name="outbox")
     t.start()
