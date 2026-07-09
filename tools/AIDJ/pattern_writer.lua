@@ -74,13 +74,19 @@ function M.write_row(track_id, instrument, note_index, note, velocity, fx_cmds)
   local line = pt:line(line_idx + 1)
   local col = line:note_column(1)
 
-  -- string-based assignment is idiomatic and safer than value conversion:
-  --   note_string: "C-4", "OFF", "---", ".."
-  --   instrument_string: "01".."FE", ".."
-  --   volume_string: "00".."7F", ".."
+  local inst_val = tonumber(instrument)
+  if not inst_val and type(instrument) == "string" then
+    for i = 1, #renoise.song().instruments do
+      if renoise.song():instrument(i).name == instrument then
+        inst_val = i - 1
+        break
+      end
+    end
+  end
+  inst_val = inst_val or 0
+
   col.note_string        = tostring(note or "---")
-  col.instrument_string  = string.format("%02X", math.max(0, math.min(0xFE,
-                             tonumber(instrument) or 0)))
+  col.instrument_string  = string.format("%02X", math.max(0, math.min(0xFE, inst_val)))
   col.volume_value       = math.max(0, math.min(127, tonumber(velocity) or 100))
 
   if fx_cmds and #fx_cmds > 0 then
