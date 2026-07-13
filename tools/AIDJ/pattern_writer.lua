@@ -158,9 +158,7 @@ function M.trigger_phrase(track_id, phrase_hex)
   local song = renoise.song()
   local row = song.transport.playback_pos.line + 1
   if row > pat.number_of_lines then row = 1 end
-  local ec = pt:line(row):effect_column(2)
-  ec.effect_value = 0x5A  -- 'Z' effect
-  ec.number_string = phrase_hex
+  pt:line(row):effect_column(2).number_string = "5A" .. phrase_hex
   return true
 end
 
