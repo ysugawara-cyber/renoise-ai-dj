@@ -7,31 +7,8 @@
   -->
 
   <!-- ================= APC mini mk2 : Pad grid -> Scene launch ================= -->
-  <!-- row 0: notes 56..63 -> songs slots 1..8 -->
-  <Mapping device_name="APC MINI mk2" channel="1" message_type="note" message_no="56">
-    <Target name="Sequencer:Pattern Slot:1"/>
-  </Mapping>
-  <Mapping device_name="APC MINI mk2" channel="1" message_type="note" message_no="57">
-    <Target name="Sequencer:Pattern Slot:2"/>
-  </Mapping>
-  <Mapping device_name="APC MINI mk2" channel="1" message_type="note" message_no="58">
-    <Target name="Sequencer:Pattern Slot:3"/>
-  </Mapping>
-  <Mapping device_name="APC MINI mk2" channel="1" message_type="note" message_no="59">
-    <Target name="Sequencer:Pattern Slot:4"/>
-  </Mapping>
-  <Mapping device_name="APC MINI mk2" channel="1" message_type="note" message_no="60">
-    <Target name="Sequencer:Pattern Slot:5"/>
-  </Mapping>
-  <Mapping device_name="APC MINI mk2" channel="1" message_type="note" message_no="61">
-    <Target name="Sequencer:Pattern Slot:6"/>
-  </Mapping>
-  <Mapping device_name="APC MINI mk2" channel="1" message_type="note" message_no="62">
-    <Target name="Sequencer:Pattern Slot:7"/>
-  </Mapping>
-  <Mapping device_name="APC MINI mk2" channel="1" message_type="note" message_no="63">
-    <Target name="Sequencer:Pattern Slot:8"/>
-  </Mapping>
+  <!-- Removed: notes 56-63 scene launch bindings are now handled exclusively by
+       tools/AIDJ/midi_router.lua (Lua 3-layer grid) to prevent double triggers. -->
 
   <!-- ================= APC mini mk2 : Sliders -> Track volumes ================= -->
   <Mapping device_name="APC MINI mk2" channel="1" message_type="cc" message_no="48">
