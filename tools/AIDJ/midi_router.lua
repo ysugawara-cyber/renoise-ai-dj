@@ -88,7 +88,7 @@ local function handle_apc(bytes)
       local tn = col + 1
       local tk = renoise.song():track(tn)
       if row == 5 then
-        renoise.song().transport.loop_block = true
+        renoise.song().transport.loop_pattern = true
       elseif row == 6 then
         for _, dev in ipairs(tk.devices) do
           local name = string.lower(dev.name or "")
@@ -112,7 +112,7 @@ local function handle_apc(bytes)
       local tn = col + 1
       local tk = renoise.song():track(tn)
       if row == 5 then
-        renoise.song().transport.loop_block = false
+        renoise.song().transport.loop_pattern = false
       elseif row == 6 then
         for _, dev in ipairs(tk.devices) do
           local name = string.lower(dev.name or "")
