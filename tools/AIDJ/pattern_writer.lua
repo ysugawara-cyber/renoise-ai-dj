@@ -149,6 +149,22 @@ function M.one_shot(track_id, note, velocity, length_lines)
 end
 
 --------------------------------------------------------------------------------
+-- phrase trigger: write Zxx effect on current line
+--------------------------------------------------------------------------------
+function M.trigger_phrase(track_id, phrase_hex)
+  local tn = track_num(track_id)
+  if not tn then return false end
+  local pat, pt = cur_pattern_track(tn)
+  local song = renoise.song()
+  local row = song.transport.playback_pos.line + 1
+  if row > pat.number_of_lines then row = 1 end
+  local ec = pt:line(row):effect_column(2)
+  ec.effect_value = 0x5A  -- 'Z' effect
+  ec.number_string = phrase_hex
+  return true
+end
+
+--------------------------------------------------------------------------------
 -- mixer (1-based)
 --------------------------------------------------------------------------------
 

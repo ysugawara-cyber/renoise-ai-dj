@@ -50,6 +50,9 @@ local function handle_apc(bytes)
   local msg = parse(bytes)
   if not msg then return end
   if msg.is_note_on then
+    local row = 7 - math.floor(msg.note / 8)
+    local col = msg.note % 8
+
     -- FADER CTRL (notes 100-107): transport
     if msg.note == 100 then
       renoise.song().transport:start(1)
@@ -59,22 +62,68 @@ local function handle_apc(bytes)
     elseif msg.note >= 112 and msg.note <= 119 then
       local sl = require "scene_launcher"
       sl.launch(msg.note - 111)
-    -- Pad grid (notes 0-63): one-shot note + LED feedback
-    else
-      local col = msg.note % 8
-      local row = 7 - math.floor(msg.note / 8)
-      if col >= 0 and col <= 7 and row >= 0 and row <= 7 then
-        if _apc_out then
-          _apc_out:send {0x96, msg.note, 0x15}
+
+    -- Layer 1: Row 0 = Scene Launch
+    elseif row == 0 then
+      local sl = require "scene_launcher"
+      sl.launch(col + 1)
+      if _apc_out then _apc_out:send {0x96, msg.note, 0x15} end
+
+    -- Layer 2: Rows 1-4 = Phrase (Zxx) switching
+    elseif row >= 1 and row <= 4 then
+      local tn = col + 1
+      local phrase_hex = string.format("%02X", row)
+      local pw = require "pattern_writer"
+      pw.trigger_phrase(tostring(tn), phrase_hex)
+      if _apc_out then
+        for r = 1, 4 do
+          local idx = (7 - r) * 8 + col
+          _apc_out:send {0x90, idx, 0}
         end
-        local pw = require "pattern_writer"
-        local NOTES = {"C-6", "B-5", "A-5", "G-5", "F-5", "D#5", "D-5", "C-5"}
-        pw.one_shot(tostring(col + 1), NOTES[row + 1], 100, 1)
+        _apc_out:send {0x96, msg.note, 0x09}
       end
+
+    -- Layer 3: Rows 5-7 = Momentary effects
+    elseif row >= 5 and row <= 7 then
+      local tn = col + 1
+      local tk = renoise.song():track(tn)
+      if row == 5 then
+        renoise.song().transport.loop_block = true
+      elseif row == 6 then
+        for _, dev in ipairs(tk.devices) do
+          local name = string.lower(dev.name or "")
+          if string.find(name, "distortion") then
+            dev.is_active = true
+          end
+        end
+      elseif row == 7 then
+        tk.mute_state = renoise.Track.MUTE_STATE_MUTED
+      end
+      if _apc_out then _apc_out:send {0x96, msg.note, 0x05} end
     end
+
   elseif msg.type == "note" and not msg.is_note_on then
-    if _apc_out and msg.note <= 63 then
-      _apc_out:send {0x90, msg.note, 0}
+    local row = 7 - math.floor(msg.note / 8)
+    local col = msg.note % 8
+
+    if row == 0 then
+      if _apc_out then _apc_out:send {0x90, msg.note, 0} end
+    elseif row >= 5 and row <= 7 then
+      local tn = col + 1
+      local tk = renoise.song():track(tn)
+      if row == 5 then
+        renoise.song().transport.loop_block = false
+      elseif row == 6 then
+        for _, dev in ipairs(tk.devices) do
+          local name = string.lower(dev.name or "")
+          if string.find(name, "distortion") then
+            dev.is_active = false
+          end
+        end
+      elseif row == 7 then
+        tk.mute_state = renoise.Track.MUTE_STATE_ACTIVE
+      end
+      if _apc_out then _apc_out:send {0x90, msg.note, 0} end
     end
   elseif msg.type == "cc" then
     local pw = require "pattern_writer"
