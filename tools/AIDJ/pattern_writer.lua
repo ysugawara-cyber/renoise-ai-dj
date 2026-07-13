@@ -90,9 +90,7 @@ function M.write_row(track_id, instrument, note_index, note, velocity, fx_cmds)
   col.volume_value       = math.max(0, math.min(127, tonumber(velocity) or 100))
 
   if fx_cmds and #fx_cmds > 0 then
-    local ec = line:effect_column(1)
-    ec.effect_string = string.sub(fx_cmds, 1, 2)
-    ec.number_string = string.sub(fx_cmds, 3, 4)
+    line:effect_column(1).number_string = fx_cmds
   end
   return true
 end
