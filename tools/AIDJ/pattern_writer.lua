@@ -89,7 +89,7 @@ function M.write_row(track_id, instrument, note_index, note, velocity, fx_cmds)
   col.instrument_string  = string.format("%02X", math.max(0, math.min(0xFE, inst_val)))
   col.volume_value       = math.max(0, math.min(127, tonumber(velocity) or 100))
 
-  if fx_cmds and #fx_cmds > 0 then
+  if fx_cmds and type(fx_cmds) == "string" and #fx_cmds >= 4 then
     line:effect_column(1).number_string = fx_cmds
   end
   return true
