@@ -59,11 +59,24 @@ local function handle_apc(bytes)
     elseif msg.note >= 112 and msg.note <= 119 then
       local sl = require "scene_launcher"
       sl.launch(msg.note - 111)
-    -- Pad grid (notes 0-63): one-shot note on column's track
+    -- Pad grid (notes 0-63): one-shot note + LED feedback
     else
       local col = msg.note % 8
       local row = 7 - math.floor(msg.note / 8)
       if col >= 0 and col <= 7 and row >= 0 and row <= 7 then
+        if _apc_out then
+          _apc_out:send {0x96, msg.note, 0x15}
+        end
+        local pw = require "pattern_writer"
+        local NOTES = {"C-6", "B-5", "A-5", "G-5", "F-5", "D#5", "D-5", "C-5"}
+        pw.one_shot(tostring(col + 1), NOTES[row + 1], 100, 1)
+      end
+    end
+  elseif msg.type == "note" and not msg.is_note_on then
+    if _apc_out and msg.note <= 63 then
+      _apc_out:send {0x90, msg.note, 0}
+    end
+  end
         local pw = require "pattern_writer"
         local NOTES = {"C-6", "B-5", "A-5", "G-5", "F-5", "D#5", "D-5", "C-5"}
         pw.one_shot(tostring(col + 1), NOTES[row + 1], 100, 1)
