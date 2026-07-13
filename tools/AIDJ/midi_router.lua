@@ -10,7 +10,8 @@
 --   (no .is_note_on / .cc / .value object fields)
 
 local M = {}
-local _ctx, _apc_in, _apc_out, _mix_in, _apc_lit = nil, nil, nil, nil, nil
+local _ctx, _apc_in, _apc_out, _mix_in = nil, nil, nil, nil
+local _grid = nil
 
 -- APC pad note numbers: bottom row = 0-7, top row = 56-63
 -- Formula: note = (7 - row) * 8 + col  =>  row = 7 - floor(note/8), col = note % 8
@@ -49,28 +50,28 @@ local function handle_apc(bytes)
   local msg = parse(bytes)
   if not msg then return end
   if msg.is_note_on then
-    -- FADER CTRL buttons (notes 100-107): transport
+    -- FADER CTRL (notes 100-107): transport
     if msg.note == 100 then
       renoise.song().transport:start(1)
     elseif msg.note == 101 then
       renoise.song().transport:stop()
-    -- SCENE LAUNCH buttons (notes 112-119): scene 1-8
+    -- SCENE LAUNCH (notes 112-119): launch full scene row
     elseif msg.note >= 112 and msg.note <= 119 then
+      local scene = msg.note - 111
       local sl = require "scene_launcher"
-      sl.launch(msg.note - 111)
-    -- Pad grid (notes 0-63): row 0 = scene launch
+      sl.launch(scene)
+      if _grid then
+        for t = 1, 8 do _grid.arm_scene(scene, t) end
+      end
+    -- Pad grid (notes 0-63): scene/track clip launcher (rows 0-4)
     else
       local row, col = apc_row_col(msg.note)
-      if row and row == 0 then
+      if row and col and row <= 4 then
+        local scene = row + 1
+        local track = col + 1
+        if _grid then _grid.arm_scene(scene, track) end
         local sl = require "scene_launcher"
-        sl.launch(col + 1)
-        if _apc_out then
-          if _apc_lit and _apc_lit ~= msg.note then
-            _apc_out:send {0x90, _apc_lit, 0}
-          end
-          _apc_lit = msg.note
-          _apc_out:send {0x96, msg.note, 0x15}
-        end
+        sl.launch(scene)
       end
     end
   elseif msg.type == "cc" then
@@ -143,6 +144,8 @@ end
 
 function M.init(config, ctx)
   _ctx = ctx
+  _grid = require "grid_controller"
+  _grid.init(config, ctx)
   for _, name in ipairs(renoise.Midi.available_input_devices()) do
     local lower = string.lower(name)
     if string.match(lower, "apc.mini") and not _apc_in then
@@ -157,6 +160,7 @@ function M.init(config, ctx)
       local ok, dev = pcall(renoise.Midi.create_output_device, name)
       if ok and dev then
         _apc_out = dev
+        _grid.set_apc_out(_apc_out)
       end
     end
   end
@@ -165,10 +169,11 @@ function M.init(config, ctx)
 end
 
 function M.deinit()
+  if _grid   then _grid.deinit() end
   if _apc_in  then _apc_in:close()  end
   if _apc_out then _apc_out:close() end
   if _mix_in  then _mix_in:close()  end
-  _apc_in, _apc_out, _mix_in, _apc_lit = nil, nil, nil, nil
+  _apc_in, _apc_out, _mix_in, _grid = nil, nil, nil, nil
 end
 
 function M.feedback_apc(note, color_mode)

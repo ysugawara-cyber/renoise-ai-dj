@@ -17,6 +17,7 @@ local scene_launcher = require "scene_launcher"
 local status_pub    = require "status_publisher"
 local midi_router   = require "midi_router"
 local cue_router    = require "cue_router"
+local grid_ctl      = require "grid_controller"
 
 local _running = false
 
@@ -55,6 +56,7 @@ function start_session()
   cue_router.init(config, package.aidj)
   midi_router.init(config, package.aidj)
   status_pub.init(config, package.aidj)
+  status_pub.set_grid(grid_ctl)
   osc_server.init(config, package.aidj)
 
   renoise.app():show_status("AIDJ session started (OSC 127.0.0.1:" ..

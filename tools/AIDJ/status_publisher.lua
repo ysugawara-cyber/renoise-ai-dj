@@ -5,6 +5,7 @@
 local M = {}
 local _client, _host, _port, _running = nil, "", 0, false
 local osc_protocol = require "osc_protocol"
+local _grid = nil
 
 local function build_msg()
   local song = renoise.song()
@@ -60,6 +61,12 @@ function M.init(config, ctx)
         print("[AIDJ status_publisher] send err:", tostring(sErr))
       end
     end
+    if _grid then
+      local song = renoise.song()
+      if song then
+        _grid.update_playback_position(song.transport.playback_pos.line, song.transport.playing)
+      end
+    end
   end)
 end
 
@@ -67,6 +74,10 @@ function M.deinit()
   _running = false
   if _client then _client:close() end
   _client = nil
+end
+
+function M.set_grid(grid)
+  _grid = grid
 end
 
 return M
