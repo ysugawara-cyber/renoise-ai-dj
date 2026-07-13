@@ -55,23 +55,18 @@ local function handle_apc(bytes)
       renoise.song().transport:start(1)
     elseif msg.note == 101 then
       renoise.song().transport:stop()
-    -- SCENE LAUNCH (notes 112-119): launch full scene row
+    -- SCENE LAUNCH (notes 112-119): scene switching
     elseif msg.note >= 112 and msg.note <= 119 then
-      local scene = msg.note - 111
       local sl = require "scene_launcher"
-      sl.launch(scene)
-      if _grid then
-        for t = 1, 8 do _grid.arm_scene(scene, t) end
-      end
-    -- Pad grid (notes 0-63): scene/track clip launcher (rows 0-4)
+      sl.launch(msg.note - 111)
+    -- Pad grid (notes 0-63): one-shot note on column's track
     else
-      local row, col = apc_row_col(msg.note)
-      if row and col and row <= 4 then
-        local scene = row + 1
-        local track = col + 1
-        if _grid then _grid.arm_scene(scene, track) end
-        local sl = require "scene_launcher"
-        sl.launch(scene)
+      local col = msg.note % 8
+      local row = 7 - math.floor(msg.note / 8)
+      if col >= 0 and col <= 7 and row >= 0 and row <= 7 then
+        local pw = require "pattern_writer"
+        local NOTES = {"C-6", "B-5", "A-5", "G-5", "F-5", "D#5", "D-5", "C-5"}
+        pw.one_shot(tostring(col + 1), NOTES[row + 1], 100, 1)
       end
     end
   elseif msg.type == "cc" then
