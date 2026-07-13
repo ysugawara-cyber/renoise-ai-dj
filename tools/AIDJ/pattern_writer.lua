@@ -152,13 +152,13 @@ end
 -- phrase trigger: write Zxx effect on current line
 --------------------------------------------------------------------------------
 function M.trigger_phrase(track_id, phrase_hex)
-  local tn = track_num(track_id)
-  if not tn then return false end
-  local pat, pt = cur_pattern_track(tn)
-  local song = renoise.song()
-  local row = song.transport.playback_pos.line + 1
-  if row > pat.number_of_lines then row = 1 end
-  pt:line(row):effect_column(2).number_string = "5A" .. phrase_hex
+  local slot = tonumber(phrase_hex, 16)
+  if not slot or slot < 1 then return false end
+  slot = math.min(slot, #renoise.song().sequencer.pattern_sequence)
+  local pos = renoise.song().transport.playback_pos
+  pos.sequence = slot
+  pos.line = 1
+  renoise.song().transport.playback_pos = pos
   return true
 end
 
