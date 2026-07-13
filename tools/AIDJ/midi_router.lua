@@ -76,12 +76,6 @@ local function handle_apc(bytes)
     if _apc_out and msg.note <= 63 then
       _apc_out:send {0x90, msg.note, 0}
     end
-  end
-        local pw = require "pattern_writer"
-        local NOTES = {"C-6", "B-5", "A-5", "G-5", "F-5", "D#5", "D-5", "C-5"}
-        pw.one_shot(tostring(col + 1), NOTES[row + 1], 100, 1)
-      end
-    end
   elseif msg.type == "cc" then
     local pw = require "pattern_writer"
     if msg.cc >= 48 and msg.cc <= 55 then
