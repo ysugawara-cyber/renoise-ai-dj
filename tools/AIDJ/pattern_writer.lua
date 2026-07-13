@@ -132,6 +132,7 @@ function M.one_shot(track_id, note, velocity, length_lines)
   local line = pt:line(row)
   local col = line:note_column(1)
   col.note_string  = tostring(note or "C-4")
+  col.instrument_string = string.format("%02X", tn - 1)
   col.volume_value = math.max(0, math.min(127, tonumber(velocity) or 100))
 
   if length_lines and tonumber(length_lines) > 1 then
