@@ -19,13 +19,14 @@ local function track_num(track_id)
   return nil
 end
 
-local function cur_pattern_seq()
-  return renoise.song().transport.playback_pos.sequence
-end
-
+-- 再生中パターンの解決: sequencer slot 番号は pattern index ではない。
+-- pattern_sequence[slot] の値(1-based)をそのまま song:pattern() に渡す。
+-- (+1 しない: song:pattern() は 1-based、pattern_sequence の値も 1-based)
 local function cur_pattern_track(track_n)
-  local seq = cur_pattern_seq()
-  local pat = renoise.song():pattern(seq)
+  local song = renoise.song()
+  local seq = song.transport.playback_pos.sequence
+  local pat_idx = song.sequencer.pattern_sequence[seq] or seq
+  local pat = song:pattern(pat_idx)
   return pat, pat:track(track_n)
 end
 
@@ -124,10 +125,16 @@ function M.one_shot(track_id, note, velocity, length_lines)
 
   local song = renoise.song()
   local pos = song.transport.playback_pos
-  local pat = song:pattern(pos.sequence)
+  local pat_idx = song.sequencer.pattern_sequence[pos.sequence] or pos.sequence
+  local pat = song:pattern(pat_idx)
   local pt = pat:track(tn)
 
-  local row = pos.line + 1
+  -- 再生中は次行に書いて即発音させる。停止中はパターン先頭に書き、
+  -- 次回 Play で鳴るようにする。
+  local row = 1
+  if song.transport.playing then
+    row = pos.line + 1
+  end
   if row > pat.number_of_lines then row = 1 end
   local line = pt:line(row)
   local col = line:note_column(1)

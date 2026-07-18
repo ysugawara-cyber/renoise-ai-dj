@@ -115,9 +115,10 @@ def run() -> int:
     if not check('/ai/mixer/volume "1" 500 (int*1000)', ok, f"-> volume={v}"):
         failures += 1
 
-    # restore
+    # restore (bpm は必ず int で送る。float は Lua 側でデコードできず
+    # ハンドラのデフォルト 174 にフォールバックする)
     if base_bpm is not None:
-        send("/ai/bpm", base_bpm)
+        send("/ai/bpm", int(round(float(base_bpm))))
     if base_mute is not None:
         send("/ai/mixer/mute", "1", 1 if base_mute else 0)
     send("/ai/mixer/solo", "1", 0)

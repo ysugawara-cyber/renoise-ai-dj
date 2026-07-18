@@ -22,6 +22,7 @@ __pycache__/
 host/state/session.json
 host/state/session.lock
 host/state/wsl_ip.txt
+host/state/bridge.pid
 host/osc/sent/*
 host/osc/outbox/*
 

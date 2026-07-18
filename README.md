@@ -15,8 +15,8 @@ AI 駆動の DJ ライブパフォーマンスシステム: **Renoise**(トラ�
 #    - Tools -> AIDJ -> Start Session
 #    - (MIDImix を Renoise の MIDI Input デバイスに設定しないこと)
 
-# 4. WSL で bridge 起動
-host/.venv/bin/python host/osc/osc_bridge.py
+# 4. WSL で bridge 起動(デタッチ。`./start.sh` でも可)
+setsid -f host/.venv/bin/python -u host/osc/osc_bridge.py >> host/state/bridge.log 2>&1 < /dev/null
 
 # 5. 各ターミナルで TUI を 4 ロール起動
 opencode --agent dj_live_pads      # TUI#1 パッド/SE

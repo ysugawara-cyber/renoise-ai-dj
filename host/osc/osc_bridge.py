@@ -212,12 +212,23 @@ def _update_state_from_status(args: list[Any]) -> None:
 def _start_outbox_consumer(client: SimpleUDPClient) -> threading.Thread:
     def loop():
         while True:
-            files = sorted(p for p in OUTBOX.glob("*.json"))
+            try:
+                files = sorted(p for p in OUTBOX.glob("*.json"))
+            except Exception as e:
+                # OneDrive 同期ロック等で glob が一時的に失敗しても
+                # consumer スレッドを死なせない
+                print("outbox glob err:", e)
+                files = []
             for p in files:
                 try:
                     msg = json.loads(p.read_text())
                     path = msg["path"]
                     args = msg["args"]
+                    # Lua 側 osc_protocol は i/s のみデコードする。整数値の float が
+                    # 'f' で送られると引数ごと落ちてハンドラのデフォルトに化けるため
+                    # (例: /ai/bpm 220.0 -> 174 に強制復帰)、ここで int に寄せる。
+                    args = [int(a) if isinstance(a, float) and a.is_integer() else a
+                            for a in args]
                     if path == "/ai/fx/macro" and len(args) >= 2:
                         expansions = _expand_macro(str(args[0]), args[1])
                         for ep, ea in expansions:

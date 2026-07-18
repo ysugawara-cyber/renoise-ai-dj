@@ -12,16 +12,24 @@ echo "========================================"
 echo ""
 
 # ── 1. osc_bridge.py ──────────────────
-if ps aux | grep -q "[o]sc_bridge"; then
-    echo "[✓] osc_bridge.py は既に起動中"
+# ターミナルを閉じても死なないよう setsid で新セッションにデタッチし、
+# 出力は host/state/bridge.log へリダイレクトする(旧版は & だけで
+# ターミナル終了時に SIGHUP で bridge が死亡し、書き込みが静かに失敗していた)。
+LOG="$ROOT/host/state/bridge.log"
+PIDFILE="$ROOT/host/state/bridge.pid"
+
+if pgrep -f "osc_bridge.py" >/dev/null 2>&1; then
+    echo "[✓] osc_bridge.py は既に起動中 (pid: $(pgrep -f 'osc_bridge.py' | tr '\n' ' '))"
 else
-    echo "[*] osc_bridge.py を起動..."
-    host/.venv/bin/python -u host/osc/osc_bridge.py &
+    echo "[*] osc_bridge.py をデタッチ起動 (log: host/state/bridge.log)..."
+    setsid -f host/.venv/bin/python -u host/osc/osc_bridge.py >> "$LOG" 2>&1 < /dev/null
     sleep 2
-    if ps aux | grep -q "[o]sc_bridge"; then
-        echo "[✓] osc_bridge.py 起動完了"
+    if pgrep -f "osc_bridge.py" >/dev/null 2>&1; then
+        pgrep -f "osc_bridge.py" > "$PIDFILE"
+        echo "[✓] osc_bridge.py 起動完了 (pid: $(tr '\n' ' ' < "$PIDFILE"))"
     else
-        echo "[✗] osc_bridge.py 起動失敗。host/.venv が正しいか確認してください"
+        echo "[✗] osc_bridge.py 起動失敗。$LOG を確認:"
+        tail -20 "$LOG" 2>/dev/null
         exit 1
     fi
 fi
@@ -41,6 +49,8 @@ if [ "$HB_AGE" -lt 5 ] 2>/dev/null; then
     echo "[✓] Renoise セッション アクティブ (heartbeat: ${HB_AGE}s ago)"
 else
     echo "[!] Renoise セッション未検出 (heartbeat: ${HB_AGE}s ago)"
+    echo "    -> Renoise 側で Tools → AIDJ → Start Session を実行してください"
+    echo "    -> 実行済みなら host/state/bridge.log と Windows 側ファイアウォール(UDP 8080/8088)を確認"
 fi
 
 echo ""
