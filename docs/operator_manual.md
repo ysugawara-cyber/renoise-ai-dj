@@ -31,7 +31,10 @@ the `pythonosc` package.
    - Tools -> AIDJ -> **Start Session**.
      This opens a Luasocket UDP server on **127.0.0.1:8080** for custom `/ai/*` OSC.
      Renoise's built-in OSC server (port 8000) is NOT used by AIDJ and can stay off.
-   - MIDI panel: load `AIDJ_APC_MIDImix.xml` from `~/.renoise/MIDI Maps/`.
+   - MIDI panel: Renoise の MIDI Mapping XML は**ロードしない**。
+     全 MIDI 入出力は Lua Tool (`tools/AIDJ/midi_router.lua`) が直接ハンドルする。
+     APC mini mk2 / MIDImix を Renoise の MIDI Input デバイスに設定してはいけない
+     (Lua tool と競合しノートが発音される)。
    - Audio panel: confirm Main Bus -> H4essential, CUE Bus -> PC headphone.
 4. **Launch OSC bridge** (run in WSL, from repo root)
    ```sh

@@ -44,7 +44,6 @@ host/
   osc/osc_bridge.py        opencode <-> Renoise OSC ブローカー
   osc/send.py              ワンショット送信ヘルパー
   state/session.json       共有セッション状態(ロック + ステータス)
-  midi_maps/               Renoise MIDI Mapping XML
 tools/AIDJ/                Renoise Lua Tool
   main.lua / osc_server.lua / pattern_writer.lua ...
   validate_dryrun.lua      生成 Lua のガード

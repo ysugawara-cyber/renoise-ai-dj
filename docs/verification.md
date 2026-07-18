@@ -80,18 +80,21 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 - `tools/AIDJ/midi_router.lua:29` が int×1000 に正規化済み、`pattern_writer.set_volume`
   が `/1000` 復元するため、可聴範囲全域が効くはず。
 
-### 3.3 Transport buttons（V5 未確定項目）
-- `host/midi_maps/AIDJ_APC_MIDImix.xml:65-69` の Note 91/92 は placeholder。
-- Renoise MIDI Mapping パネルの "Learn" ボタンを使って実際の Note 番号を取得し、
-  XML を更新する。
+### 3.3 Transport buttons
+- FADER CTRL 左 2 つ (Note 100 / 101) → Play / Stop。
+  `tools/AIDJ/midi_router.lua` の `handle_apc` が直接処理する
+  (Renoise MIDI Mapping XML は廃止済み。旧 `host/midi_maps/AIDJ_APC_MIDImix.xml` は
+  誤ったマッピングを含んでいたため削除)。
 - LED の色（velocity palette）も実機で確認し、必要なら
-  `tools/AIDJ/midi_router.lua:23` の `color_mode` 引数を調整。
+  `tools/AIDJ/midi_router.lua` の LED 送信箇所を調整。
 
 ## 4. AKAI MIDImix 検証（V4 / T2-b）
 
-### 4.1 MUTE / SOLO ボタン（Note 1..8 / 16..23）
-- MUTE button 1 を押す → Track 1 mute toggle。
-- SOLO button 1 を押す → Track 1 solo toggle。
+### 4.1 MUTE / SOLO ボタン（MUTE: Note 1,4,7,…,22 / SOLO: Note 3,6,9,…,24）
+- MUTE button 1 (Note 1) を押す → Track 1 mute toggle。
+- SOLO button 1 (Note 3) を押す → Track 1 solo toggle。
+- 割当の詳細は `.opencode/rules/midi_mapping.md` と
+  `tools/AIDJ/midi_router.lua` の `handle_mix` を参照。
 
 ### 4.2 Macro knobs CC 10..17 → `/ai/fx/macro` 自動発火（T2-b）
 - `osc_bridge.py` の起動ログに `midi macro listener on 'MIDI Mix' ...` が出るはず。
