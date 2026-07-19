@@ -15,45 +15,59 @@ This creates `host/.venv/` with `python-osc` installed. All `host/osc/*` scripts
 MUST be invoked with `host/.venv/bin/python` (not system `python3`) so they find
 the `pythonosc` package.
 
-## 1. Pre-flight (~5 minutes before doors)
+## 1. Pre-flight / PC 再起動後の起動手順 (~5 minutes before doors)
 
-1. **Power up MIDI hardware**
-   - APC mini mk2: hold Generic-MIDI-mode key combo at power-on (stop+pad per
-     current Akai manual; verify against installed firmware).
+PC 再起動時はこの順序で起動する。**bridge → Renoise の順が重要**
+(bridge が起動時に WSL IP を自動検出して `wsl_ip.txt` をツール dir に書き込み、
+Renoise ツールはロード時にそれを読む。逆順で Renoise が先に走っていると
+古い IP に broadcast し続け、heartbeat が更新されない)。
+
+1. **Power up / connect hardware** (Renoise 起動前に接続すること。
+   MIDI デバイスは Start Session 時に掴みに行く)
+   - APC mini mk2: USB 接続(デフォルトの Ableton Live 互換モード)。
    - AKAI MIDImix: standard USB power, no mode switch.
-2. **Connect audio**
    - Zoom H4essential via USB; mode = "Audio Interface".
    - Plug DJ headphones into **PC headphone jack** (this is the CUE bus).
    - Plug H4essential headphone out into SR system (this is Main).
+2. **Launch OSC bridge** (WSL, from repo root)
+   ```sh
+   ./start.sh
+   ```
+   - bridge は `setsid` でデタッチ起動される(ターミナルを閉じても死なない)。
+     ログは `host/state/bridge.log`、PID は `host/state/bridge.pid`。
+   - この時点で `[!] Renoise セッション未検出` が出ても正常(Renoise 未起動のため)。
 3. **Launch Renoise**
    - Load AIDJ template XRNS. (初回のみ `docs/verification.md` §5 の手順で
      `tools/AIDJ/setup/build_track_skeleton.lua` を実行して骨格を生成・保存)
    - Tools -> AIDJ -> **Start Session**.
-     This opens a Luasocket UDP server on **127.0.0.1:8080** for custom `/ai/*` OSC.
+     これで UDP **8080** の `/ai/*` 受信と **8088** への status broadcast (~10 Hz) が始まる。
      Renoise's built-in OSC server (port 8000) is NOT used by AIDJ and can stay off.
    - MIDI panel: Renoise の MIDI Mapping XML は**ロードしない**。
      全 MIDI 入出力は Lua Tool (`tools/AIDJ/midi_router.lua`) が直接ハンドルする。
      APC mini mk2 / MIDImix を Renoise の MIDI Input デバイスに設定してはいけない
      (Lua tool と競合しノートが発音される)。
    - Audio panel: confirm Main Bus -> H4essential, CUE Bus -> PC headphone.
-4. **Launch OSC bridge** (run in WSL, from repo root)
+4. **Go / No-Go 確認** (WSL)
    ```sh
-   host/.venv/bin/python host/osc/osc_bridge.py
+   ./start.sh   # 2 回目は bridge 既起動のまま heartbeat チェックだけ行う
    ```
-   Verify "osc_bridge started -- target 127.0.0.1:8080" prints.
+   - `[✓] osc_bridge.py は既に起動中` と
+     `[✓] Renoise セッション アクティブ (heartbeat: 0s ago)` の 2 つを確認。
+   - 任意: `host/.venv/bin/python host/osc/verify_roundtrip.py` が `4/4 passed` なら
+     疎通は完全(track1 の mute/solo/volume と BPM が一瞬変わるので**本番中は実行しない**)。
 5. **Launch opencode TUIs** (one per terminal, 4 fixed roles)
    ```sh
-   # terminal 1 - パッド / SE
-   opencode --agent dj_live_pads
-   # terminal 2 - ベース / FX
-   opencode --agent dj_live_bass_fx
-   # terminal 3 - パーカッション / ドラム
-   opencode --agent dj_live_drums
-   # terminal 4 - グローバル指揮
+   # terminal 1 - グローバル指揮
    opencode --agent dj_conductor
+   # terminal 2 - パーカッション / ドラム
+   opencode --agent dj_live_drums
+   # terminal 3 - ベース / FX
+   opencode --agent dj_live_bass_fx
+   # terminal 4 - パッド / SE
+   opencode --agent dj_live_pads
    ```
-   Each TUI should announce itself in `host/state/session.json` as
-   `tui1`..`tui4` (matches its role file).
+   TUI は起動しただけでは動かない。重要なのは bridge と Renoise セッションが
+   先に生きていること(bridge 未起動だと outbox の JSON が静かに滞留する)。
    All TUIs accept **Japanese natural language** prompts (日本語で入力してください)。
 
 ## 2. Projection setup
@@ -86,14 +100,14 @@ the `pythonosc` package.
 |---|---|
 | One opencode TUI frozen | Kill that terminal only. Other TUIs + Renoise keep running. Restart that TUI when convenient. |
 | Renoise unresponsive | File -> Save As (if possible); otherwise `kill` only Renoise, then reopen and resume from `session.json`. |
-| MIDI controller disconnected | Unplug/replug USB; reload MIDI map from Renoise MIDI Mapping panel. |
+| MIDI controller disconnected | Unplug/replug USB; Renoise で Tools -> AIDJ -> Stop Session -> Start Session でデバイスを再取得(MIDI map XML は使わない)。 |
 | Hard panic | MIDImix master to -inf; APC stop pad; resolve smoke before resume. |
 | Sound lost completely | Check PC headphone still routed; check H4essential blue "AUDIO I/F" indicator. |
 
 ## 5. End of set
 
 1. opencode TUIs: send `/ai/transport stop`.
-2. esc_bridge: Ctrl-C.
+2. osc_bridge: `kill $(cat host/state/bridge.pid)` (デタッチされているため Ctrl-C は効かない)。
 3. Renoise: Tools -> AIDJ -> **Stop Session**.
 4. Save the XRNS with a timestamped name for archive.
 5. Backup `host/state/session.json` to docs/set-archive/<date>.json.
