@@ -18,14 +18,18 @@ echo ""
 LOG="$ROOT/host/state/bridge.log"
 PIDFILE="$ROOT/host/state/bridge.pid"
 
-if pgrep -f "osc_bridge.py" >/dev/null 2>&1; then
-    echo "[✓] osc_bridge.py は既に起動中 (pid: $(pgrep -f 'osc_bridge.py' | tr '\n' ' '))"
+# pgrep は末尾アンカー必須: "osc_bridge.py" を含むシェルのコマンドライン
+# (例: py_compile 経由の起動)に誤マッチして起動スキップする事故があった
+BRIDGE_PAT='osc_bridge\.py$'
+
+if pgrep -f "$BRIDGE_PAT" >/dev/null 2>&1; then
+    echo "[✓] osc_bridge.py は既に起動中 (pid: $(pgrep -f "$BRIDGE_PAT" | tr '\n' ' '))"
 else
     echo "[*] osc_bridge.py をデタッチ起動 (log: host/state/bridge.log)..."
     setsid -f host/.venv/bin/python -u host/osc/osc_bridge.py >> "$LOG" 2>&1 < /dev/null
     sleep 2
-    if pgrep -f "osc_bridge.py" >/dev/null 2>&1; then
-        pgrep -f "osc_bridge.py" > "$PIDFILE"
+    if pgrep -f "$BRIDGE_PAT" >/dev/null 2>&1; then
+        pgrep -f "$BRIDGE_PAT" > "$PIDFILE"
         echo "[✓] osc_bridge.py 起動完了 (pid: $(tr '\n' ' ' < "$PIDFILE"))"
     else
         echo "[✗] osc_bridge.py 起動失敗。$LOG を確認:"

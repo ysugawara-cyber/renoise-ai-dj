@@ -32,7 +32,7 @@ from typing import Any
 try:
     from pythonosc.udp_client import SimpleUDPClient
     from pythonosc.dispatcher import Dispatcher
-    from pythonosc.osc_server import ThreadingOSCUDPServer
+    from pythonosc.osc_server import BlockingOSCUDPServer
 except ImportError as e:  # pragma: no cover
     raise SystemExit(
         "missing deps: pip install python-osc pyyaml mido python-rtmidi"
@@ -181,32 +181,80 @@ def _load_state() -> dict[str, Any]:
 
 
 def _save_state(state: dict[str, Any]) -> None:
+    # tmp へ書いてから os.replace でアトミックに差し替える。
+    # (bridge 死亡や OneDrive 競合時に 0 バイトの session.json が残るのを防ぐ)
+    payload = json.dumps(state, indent=2)
     with open(LOCK, "r+") as lf:
         fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-        STATE.write_text(json.dumps(state, indent=2))
+        try:
+            tmp = STATE.parent / (STATE.name + ".tmp")
+            tmp.write_text(payload)
+            os.replace(tmp, STATE)
+        except Exception:
+            STATE.write_text(payload)
         fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+
+# /ai/status の受信ハンドラはファイル I/O を行わずメモリ上の最新値を更新するだけ。
+# OneDrive 上の flock/ファイル書込が遅く、ThreadingOSCUDPServer の
+# パケット毎スレッド生成と組み合わさるとハンドラが詰まってスレッドが無限蓄積し
+# "can't start new thread" で bridge が死亡する(実故障 2026-07-18)。
+_latest_status: dict[str, Any] = {}
+_status_lock = threading.Lock()
+_status_dirty = False
 
 
 def _update_state_from_status(args: list[Any]) -> None:
     # args: [i bpm_x10, i active_scene, i play_state, s json_tracks]
+    global _status_dirty
     if len(args) < 4:
         return
     bpm_x10, scene, play, tracks_json = args[:4]
-    state = _load_state()
-    state["bpm"] = round(int(bpm_x10) / 10.0, 1)
-    state["active_scene"] = int(scene)
-    state["play_state"] = "playing" if int(play) == 1 else "stopped"
     try:
         tracks = json.loads(tracks_json) if isinstance(tracks_json, str) else tracks_json
-        for ti, ctx in enumerate(tracks, start=1):
-            tk = state.setdefault("tracks", {}).setdefault(str(ti), {})
-            tk["volume"] = float(ctx.get("v", 1.0)) / 1.415
-            tk["mute"] = bool(ctx.get("m", 0))
-            tk["solo"] = bool(ctx.get("s", 0))
-    except Exception as e:
-        print("status parse err:", e)
-    state["renoise_heartbeat"] = int(time.time())
-    _save_state(state)
+    except Exception:
+        tracks = []
+    with _status_lock:
+        _latest_status["bpm"] = round(int(bpm_x10) / 10.0, 1)
+        _latest_status["active_scene"] = int(scene)
+        _latest_status["play_state"] = "playing" if int(play) == 1 else "stopped"
+        _latest_status["tracks"] = tracks
+        _latest_status["renoise_heartbeat"] = int(time.time())
+        _status_dirty = True
+
+
+def _start_state_writer() -> threading.Thread:
+    """0.5 s 間隔で _latest_status を session.json に反映する単一ライター。
+
+    locked_rows / tui_instances などエージェント編集フィールドを保持するため
+    既存 state をロードしてからマージする。
+    """
+    def loop():
+        global _status_dirty
+        while True:
+            time.sleep(0.5)
+            with _status_lock:
+                if not _status_dirty:
+                    continue
+                latest = dict(_latest_status)
+                _status_dirty = False
+            try:
+                state = _load_state()
+                state["bpm"] = latest["bpm"]
+                state["active_scene"] = latest["active_scene"]
+                state["play_state"] = latest["play_state"]
+                for ti, ctx in enumerate(latest.get("tracks") or [], start=1):
+                    tk = state.setdefault("tracks", {}).setdefault(str(ti), {})
+                    tk["volume"] = float(ctx.get("v", 1.0)) / 1.415
+                    tk["mute"] = bool(ctx.get("m", 0))
+                    tk["solo"] = bool(ctx.get("s", 0))
+                state["renoise_heartbeat"] = latest["renoise_heartbeat"]
+                _save_state(state)
+            except Exception as e:
+                print("state writer err:", e)
+    t = threading.Thread(target=loop, daemon=True, name="state-writer")
+    t.start()
+    return t
 
 
 def _start_outbox_consumer(client: SimpleUDPClient) -> threading.Thread:
@@ -252,11 +300,14 @@ def _start_outbox_consumer(client: SimpleUDPClient) -> threading.Thread:
     return t
 
 
-def _start_status_server() -> ThreadingOSCUDPServer:
+def _start_status_server() -> "BlockingOSCUDPServer":
+    # 単一スレッドの BlockingOSCUDPServer を使う。ThreadingOSCUDPServer は
+    # 10 Hz の status パケット毎にスレッドを生成し、ハンドラが詰まると
+    # スレッド枯渇で bridge ごと死亡するため。
     dispatcher = Dispatcher()
     dispatcher.map("/ai/status", lambda path, *args: _update_state_from_status(list(args)))
     dispatcher.set_default_handler(lambda path, args: print(f"[debug] unknown OSC: {path} {args}"))
-    srv = ThreadingOSCUDPServer(("0.0.0.0", BRIDGE_LISTEN_PORT), dispatcher)
+    srv = BlockingOSCUDPServer(("0.0.0.0", BRIDGE_LISTEN_PORT), dispatcher)
     threading.Thread(target=srv.serve_forever, daemon=True, name="osc-status").start()
     print(f"osc_bridge listening /ai/status on 0.0.0.0:{BRIDGE_LISTEN_PORT}")
     return srv
@@ -330,9 +381,13 @@ def _start_midi_macro_listener(client: SimpleUDPClient):
 
 
 def main() -> None:
+    # 空/欠損の session.json を初期化(前回の異常終了で 0 バイト化した場合等)
+    if not STATE.exists() or STATE.stat().st_size == 0:
+        _save_state({})
     renoise_client = SimpleUDPClient(RENOISE_HOST, RENOISE_PORT)
     _start_outbox_consumer(renoise_client)
     _start_status_server()
+    _start_state_writer()
     _start_midi_macro_listener(renoise_client)
     print(f"osc_bridge started")
     print(f"  WSL IP:  {WSL_IP}  (Renoise -> {WSL_IP}:{BRIDGE_LISTEN_PORT})")

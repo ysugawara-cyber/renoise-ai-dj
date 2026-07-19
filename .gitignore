@@ -23,6 +23,7 @@ host/state/session.json
 host/state/session.lock
 host/state/wsl_ip.txt
 host/state/bridge.pid
+host/state/directives/
 host/osc/sent/*
 host/osc/outbox/*
 
