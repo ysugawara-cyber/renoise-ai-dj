@@ -27,13 +27,13 @@ local function cur_seq()
 end
 
 -- 再生中パターンの解決: sequencer slot 番号は pattern index ではない。
--- pattern_sequence[slot] の値(1-based)をそのまま song:pattern() に渡す。
--- (+1 しない: song:pattern() は 1-based、pattern_sequence の値も 1-based)
+-- pattern_sequence[slot] の値は 0-based の pattern 番号(GUI の "Pattern 00" 等)。
+-- song:pattern() は 1-based なので +1 して渡すこと。
 local function cur_pattern_track(track_n)
   local song = renoise.song()
   local seq = cur_seq()
-  local pat_idx = song.sequencer.pattern_sequence[seq] or seq
-  local pat = song:pattern(pat_idx)
+  local pat_idx = song.sequencer.pattern_sequence[seq]
+  local pat = pat_idx and song:pattern(pat_idx + 1) or song:pattern(seq)
   return pat, pat:track(track_n)
 end
 
@@ -132,8 +132,8 @@ function M.one_shot(track_id, note, velocity, length_lines)
 
   local song = renoise.song()
   local seq = cur_seq()
-  local pat_idx = song.sequencer.pattern_sequence[seq] or seq
-  local pat = song:pattern(pat_idx)
+  local pat_idx = song.sequencer.pattern_sequence[seq]
+  local pat = pat_idx and song:pattern(pat_idx + 1) or song:pattern(seq)
   local pt = pat:track(tn)
 
   local pos = song.transport.playing and song.transport.playback_pos
