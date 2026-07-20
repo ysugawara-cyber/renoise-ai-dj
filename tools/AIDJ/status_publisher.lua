@@ -24,9 +24,13 @@ local function build_msg()
   end
   local tracks_str = "[" .. table.concat(tracks, ",") .. "]"
 
+  -- 停止中の playback_pos は古い位置のままなので、停止中は edit_pos(カーソル)を
+  -- active_scene として送る(シーンを arm した状態が session.json に反映される)。
+  local seq = t.playing and t.playback_pos.sequence or t.edit_pos.sequence
+
   return osc_protocol.encode_message("/ai/status", "iiis", {
     math.floor(t.bpm * 10),
-    t.playback_pos.sequence,
+    seq,
     t.playing and 1 or 0,
     tracks_str,
   })

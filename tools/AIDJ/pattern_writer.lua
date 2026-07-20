@@ -19,12 +19,19 @@ local function track_num(track_id)
   return nil
 end
 
+-- 現在のシーケンス slot: 再生中は playback_pos、停止中は edit_pos(カーソル)。
+-- Renoise は停止中の playback_pos 書込/読出を無視・陳腐化させるため。
+local function cur_seq()
+  local t = renoise.song().transport
+  return t.playing and t.playback_pos.sequence or t.edit_pos.sequence
+end
+
 -- 再生中パターンの解決: sequencer slot 番号は pattern index ではない。
 -- pattern_sequence[slot] の値(1-based)をそのまま song:pattern() に渡す。
 -- (+1 しない: song:pattern() は 1-based、pattern_sequence の値も 1-based)
 local function cur_pattern_track(track_n)
   local song = renoise.song()
-  local seq = song.transport.playback_pos.sequence
+  local seq = cur_seq()
   local pat_idx = song.sequencer.pattern_sequence[seq] or seq
   local pat = song:pattern(pat_idx)
   return pat, pat:track(track_n)
@@ -124,10 +131,13 @@ function M.one_shot(track_id, note, velocity, length_lines)
   if not tn then return false end
 
   local song = renoise.song()
-  local pos = song.transport.playback_pos
-  local pat_idx = song.sequencer.pattern_sequence[pos.sequence] or pos.sequence
+  local seq = cur_seq()
+  local pat_idx = song.sequencer.pattern_sequence[seq] or seq
   local pat = song:pattern(pat_idx)
   local pt = pat:track(tn)
+
+  local pos = song.transport.playing and song.transport.playback_pos
+                                   or  song.transport.edit_pos
 
   -- 再生中は次行に書いて即発音させる。停止中はパターン先頭に書き、
   -- 次回 Play で鳴るようにする。
@@ -162,10 +172,18 @@ function M.trigger_phrase(track_id, phrase_hex)
   local slot = tonumber(phrase_hex, 16)
   if not slot or slot < 1 then return false end
   slot = math.min(slot, #renoise.song().sequencer.pattern_sequence)
-  local pos = renoise.song().transport.playback_pos
-  pos.sequence = slot
-  pos.line = 1
-  renoise.song().transport.playback_pos = pos
+  local t = renoise.song().transport
+  if t.playing then
+    local pos = t.playback_pos
+    pos.sequence = slot
+    pos.line = 1
+    t.playback_pos = pos
+  else
+    local pos = t.edit_pos
+    pos.sequence = slot
+    pos.line = 1
+    t.edit_pos = pos
+  end
   return true
 end
 
