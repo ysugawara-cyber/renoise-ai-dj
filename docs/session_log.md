@@ -32,7 +32,7 @@
 ### テンプレート XRNS (§5)
 - 8 sequencer tracks + CUE bus (track 10)
 - 楽器: Kick Generator, Break - Bangy Bangy, Diode 03, Tension, String Thing, Lucid Dream, Arp Saw Square, Harsh Noise, tv_set_mono
-- 5 patterns (256 lines), 5 pattern sequence slots
+- 5 pattern sequence slots。旧XRNSは先頭patternのみ64 linesだったが、現行skeletonは全slotを256 linesへ設定する。
 - FX devices per fx_mapping.yaml
 
 ## 修正したバグ
@@ -53,17 +53,17 @@
 - `InstrumentList`: #renoise.song().instruments で個数取得可
 
 ### モデル/速度
-- 全エージェント: opencode-go/deepseek-v4-flash 推奨
+- 公開版は特定モデルへ固定しない。OpenCode `/models` で利用可能なtool-callingモデルを選ぶ。
 - TUI レスポンス: ~35-60s (モデル思考時間が支配的)
 - 速度最適化ルールを全エージェントに適用済み
 
 ### TUI パターン書き込み
 - OSC /ai/pattern/write で直接書き込み。Lua 生成不要。
-- 絶対パス outbox を使用。python3 -c ワンライナー推奨。
+- `host/osc/message_queue.py`で相対パスoutboxへatomic publishする。
 - 書き込み後検証禁止。session.json 読取不要。
 
 ## 既知の制限
 - Zxx エフェクト: Renoise Lua API からエフェクト種別変更不可 → パターンシーケンスジャンプで代用
 - MIDImix macro auto-fire: WSL から USB MIDI アクセス不可 → Lua 側で直接処理
 - APC LED 色: ファームウェアのパレットに依存
-- python-rtmidi: ソースビルド必要なため Python 3.12 の venv を使用
+- python-rtmidi: 過去のbridge MIDI経路で使用。公開版標準経路はLua直接処理のため不要。

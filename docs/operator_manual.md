@@ -8,12 +8,18 @@
 # from repo root (inside WSL)
 python3 -m venv host/.venv
 host/.venv/bin/pip install --upgrade pip
-host/.venv/bin/pip install python-osc pyyaml mido python-rtmidi
+host/.venv/bin/pip install -r requirements.txt
+cp opencode.example.json opencode.json
+export AIDJ_RENOISE_TOOL_DIR="/mnt/c/Users/<WindowsUser>/AppData/Roaming/Renoise/V3.5.4/Scripts/Tools/com.aidj.live.xrnx"
+export AIDJ_RENOISE_OSC_BIND_HOST=0.0.0.0  # Windows Renoise + WSL bridgeの場合のみ
+./tools/install.sh
+./start.sh  # bind設定をTool directoryへ永続化
 ```
 
 This creates `host/.venv/` with `python-osc` installed. All `host/osc/*` scripts
 MUST be invoked with `host/.venv/bin/python` (not system `python3`) so they find
 the `pythonosc` package.
+`osc_bind_host.txt`作成後は、再起動時に上記のbind環境変数を再exportする必要はない。
 
 ## 1. Pre-flight / PC 再起動後の起動手順 (~5 minutes before doors)
 
@@ -37,8 +43,8 @@ Renoise ツールはロード時にそれを読む。逆順で Renoise が先に
      ログは `host/state/bridge.log`、PID は `host/state/bridge.pid`。
    - この時点で `[!] Renoise セッション未検出` が出ても正常(Renoise 未起動のため)。
 3. **Launch Renoise**
-   - Load AIDJ template XRNS. (初回のみ `docs/verification.md` §5 の手順で
-     `tools/AIDJ/setup/build_track_skeleton.lua` を実行して骨格を生成・保存)
+   - 公開版はサンプル入りXRNSを同梱しない。初回のみ`docs/verification.md` §5の手順で
+     `tools/AIDJ/setup/build_track_skeleton.lua`を実行し、権利を持つ音源を割り当てて保存する。
    - Tools -> AIDJ -> **Start Session**.
      これで UDP **8080** の `/ai/*` 受信と **8088** への status broadcast (~10 Hz) が始まる。
      Renoise's built-in OSC server (port 8000) is NOT used by AIDJ and can stay off.
@@ -75,7 +81,7 @@ Renoise ツールはロード時にそれを読む。逆順で Renoise が先に
 - **Main projector**: capture Renoise window (window-capture source in OBS,
   or NDI Scan Converter `Renoise`).
 - **Sub projector**: capture the opencode TUI terminal window(s) (window-capture
-  in OBS). Use high-contrast syntax themes (`tokyonight` is in `tui.json`).
+  in OBS). High-contrast terminal theme is recommended (`tui.json`は同梱しない)。
 - **HUD overlay (optional)**: add a Text source in OBS reading
   `host/state/session.json` via a tiny Node script or a `tail -F` shell command.
 
@@ -88,9 +94,9 @@ Renoise ツールはロード時にそれを読む。逆順で Renoise が先に
   - 「リードにフィルタースイープ 0 -> 1 を 4 小節」(bass_fx へ)
   - 「パッドにリバーブを 60%」(pads へ)
 - Physical control:
-  - **APC** row 0 pads: launch pattern slots 1-8 (matches scenes.yaml).
+  - **APC** row 0 pads: launch pattern slots 1-5 (6-8は追加slot用)。
   - **APC** sliders: adjust Track 1-8 volume.
-  - **MIDImix** faders: per-track FX (macro bank B is FX row 2).
+  - **MIDImix** faders: Track 1-8 volume、master fader: Master volume。
   - **MIDImix** knobs 1-8: global macros (bpm, swing, sends, etc).
   - **MIDImix** MUTE/SOLO buttons: track mute / solo.
 

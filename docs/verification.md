@@ -21,8 +21,8 @@ host/.venv/bin/python host/osc/verify_roundtrip.py
 - `/ai/mixer/mute "1" 1` → `tracks.1.mute == true`
 - `/ai/mixer/solo "1" 1` → `tracks.1.solo == true`
 - `/ai/mixer/volume "1" 500` → `tracks.1.volume` が 0.49..0.51
-  （`pattern_writer.lua` が `v/1000 * 1.415` で postfx_volume を設定→
-  `status_publisher` が生値をブロードキャスト→`osc_bridge.py` が `/1.415` で正規化→
+  （`pattern_writer.lua` が `v/1000 * 1.41253` で postfx_volume を設定→
+  `status_publisher` が生値をブロードキャスト→`osc_bridge.py` が `/1.41253` で正規化→
   net `500/1000 = 0.5`）
 
 全 4 / 4 で PASS なら ok。1 つでも FAIL の場合は該当 OSC handler の
@@ -72,11 +72,11 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 ## 3. APC mini mk2 検証（V4 / V5 前半）
 
 ### 3.1 Pad row 0 (Note 56..63) → scene launch
-- Renoise の Pattern Sequence slot 1..8 を押す。
+- Renoise の Pattern Sequence slot 1..5 を押す。6..8はslotを追加した場合のみ有効。
 - LED が緑点灯する（`tools/AIDJ/midi_router.lua:23` で feedback_apc(note, 1)）。
 
 ### 3.2 Sliders (CC 48..55) → Track volume
-- Slider 1 を動かす → Track 1 の postfx_volume が 0..1.415 で変化。
+- Slider 1 を動かす → Track 1 の postfx_volume が 0..1.41253 で変化。
 - `tools/AIDJ/midi_router.lua:29` が int×1000 に正規化済み、`pattern_writer.set_volume`
   が `/1000` 復元するため、可聴範囲全域が効くはず。
 
@@ -96,17 +96,16 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 - 割当の詳細は `.opencode/rules/midi_mapping.md` と
   `tools/AIDJ/midi_router.lua` の `handle_mix` を参照。
 
-### 4.2 Macro knobs CC 10..17 → `/ai/fx/macro` 自動発火（T2-b）
-- `osc_bridge.py` の起動ログに `midi macro listener on 'MIDI Mix' ...` が出るはず。
-  `mido not available` / `MIDImix input not found` の場合は knob 自動発火不可。
-- Knob 1 (CC 10, bpm_coarse) を回すと bridge ログに
-  `-> /ai/bpm <X> (macro bpm_coarse cc10=Y)` が出るはず。
-- Knob 2 (CC 11, swing) を回すと `-> /ai/swing <X>` が出るはず。
-- Knob 4 (CC 13, send_reverb) を回すと `-> /ai/fx/param [track "7", 0, 0, <X>]` が出るはず。
+### 4.2 Macro knobs (Renoise Lua直接処理)
+- CC: `16,20,24,28,46,50,54,58`
+- Knob 1 (CC16) → BPM、Knob 2 (CC20) → Swing、Knob 3 (CC24) → Master Pan。
+- Knob 4-8のFXは現在のXRNS device構成と照合して手動確認する。
+- bridge側MIDI listenerは標準で無効。WSLからUSB MIDIへアクセスしない。
 
-### 4.3 Master fader (CC 7)
-- Renoise MIDI Map で Master Track Volume に bind 済み（XML に記載）。
-- 動作確認は Renoise の Master fader の動きで視認。
+### 4.3 Faders
+- Track 1-8: CC `19,23,27,31,49,53,57,61` → Track Volume。
+- Master: CC `62` → Master Volume。
+- Renoise MIDI Mapping XMLは使用しない。
 
 ## 5. テンプレート XRNS 作成手順（C.6）
 
@@ -145,13 +144,17 @@ print("CUE bus at track", master_idx + 1)
 **b) #Send + FX デバイス一括挿入**:
 ```lua
 local song = renoise.song()
+local master_idx
+for i, tr in ipairs(song.tracks) do
+  if tr.type == renoise.Track.TRACK_TYPE_MASTER then master_idx = i end
+end
 local SEND = "Audio/Effects/Native/#Send"
 local FX = {
   [1] = {"Audio/Effects/Native/Compressor", "Audio/Effects/Native/Reverb"},
   [2] = {"Audio/Effects/Native/Distortion 2", "Audio/Effects/Native/Delay"},
   [3] = {"Audio/Effects/Native/Digital Filter"},
   [5] = {"Audio/Effects/Native/Reverb"},
-  [7] = {"Audio/Effects/Native/Cabinet Simulator"},
+  [7] = {"Audio/Effects/Native/Reverb", "Audio/Effects/Native/Delay", "Audio/Effects/Native/Cabinet Simulator"},
 }
 for ti = 1, 8 do
   local tr = song:track(ti)
@@ -162,6 +165,8 @@ for ti = 1, 8 do
     end
   end
 end
+local master = song:track(master_idx)
+master:insert_device_at("Audio/Effects/Native/Digital Filter", #master.devices + 1)
 print("FX + #Send inserted")
 ```
 
@@ -185,8 +190,9 @@ print("#Send -> CUE, Amount=0.8")
    `~/.renoise/Templates/` に配置すれば Renoise の File -> New から選べる。
 
 ### 5.5 fx_mapping.yaml / macros.yaml の index 照合（A.2）
-- 手順 5.3 で挿入したデバイス順と `fx_mapping.yaml` の `fx_index`（0-based）、
+- 手順 5.3 で挿入したカスタムFXの順と `fx_mapping.yaml` の `fx_index`（0-based）、
   `macros.yaml` の `fx_index` / `param_index` を照合。
+- `fx_index: 0` は最初のカスタムFXを表す。TrackVolPanと先頭の`#Send`はruntimeが除外する。
 - Renoise Lua Console で以下を実行してインデックスを確認:
   ```lua
   for i, d in ipairs(renoise.song():track(7).devices) do
@@ -196,12 +202,13 @@ print("#Send -> CUE, Amount=0.8")
     end
   end
   ```
-  表示される 1-based index を `fx_index` は -1 して YAML に書く。
+  `param_index`は表示されたparameter番号から1を引く。`fx_index`はカスタムFX内の順番で、
+  最初を0とする（GUI全体のdevice番号から単純に1を引かない）。
 
 ## 6. 検証失敗時の問い合わせ先
 
 - OSC 系（手順 1, 2）→ `osc_protocol.lua` / `osc_server.lua` /
   `pattern_writer.lua` / `osc_bridge.py`
-- MIDI 系（手順 3, 4）→ `midi_router.lua` / `osc_bridge._start_midi_macro_listener`
+- MIDI 系（手順 3, 4）→ `midi_router.lua`
 - 検証スクリプト自体 → `host/osc/verify_roundtrip.py`
 - テンプレート作成（手順 5）→ `tools/AIDJ/setup/build_track_skeleton.lua`
