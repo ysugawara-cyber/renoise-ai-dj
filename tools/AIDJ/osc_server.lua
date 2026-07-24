@@ -4,7 +4,8 @@
 -- accept custom /ai/* paths we run our own UDP listener via renoise.Socket.
 
 local M = {}
-local _server, _handlers = nil, {}
+local _server, _notifier, _handlers = nil, nil, {}
+local _receive_count, _last_path, _last_error = 0, "-", "-"
 local osc_protocol = require "osc_protocol"
 local SIGNATURES = {
   ["/ai/transport"] = "s", ["/ai/bpm"] = "i", ["/ai/swing"] = "i",
@@ -47,10 +48,46 @@ function M.dispatch(path, args, types)
   end
 end
 
+function M.status()
+  return {
+    running = _server ~= nil and _server.is_running,
+    address = _server and _server.local_address or "-",
+    port = _server and _server.local_port or 0,
+    received = _receive_count,
+    last_path = _last_path,
+    last_error = _last_error,
+  }
+end
+
+function M.self_test()
+  if not _server or not _server.is_running then return nil, "OSC server is not running" end
+  if not _handlers["/ai/bpm"] then return nil, "session is not started" end
+  local ok, err = pcall(M.dispatch, "/ai/bpm", {174}, "i")
+  if not ok then return nil, tostring(err) end
+  return true
+end
+
+function M.loopback_test()
+  if not _server or not _server.is_running then return nil, "OSC server is not running" end
+  local client, err = renoise.Socket.create_client(
+    "127.0.0.1", _server.local_port, renoise.Socket.PROTOCOL_UDP)
+  if not client then return nil, tostring(err) end
+  local payload = osc_protocol.encode_message("/ai/bpm", "i", {175})
+  local sent, send_err = client:send(payload)
+  if not sent then
+    client:close()
+    return nil, tostring(send_err)
+  end
+  _server:wait(500)
+  client:close()
+  return true
+end
+
 function M.init(config, ctx)
   local pw = require "pattern_writer"
   local sl = require "scene_launcher"
   local cr = require "cue_router"
+  _receive_count, _last_path, _last_error = 0, "-", "-"
 
   register("/ai/transport", function(a)
     local state = a[1]
@@ -98,30 +135,41 @@ function M.init(config, ctx)
   register("/ai/fx/param", function(a) pw.set_fx_param(a[1], a[2], a[3], a[4]) end)
   register("/ai/fx/macro", function(a) pw.set_macro(a[1], a[2]) end)
 
-  local server, err = renoise.Socket.create_server(
-    config.osc_listen_host, config.osc_listen_port, renoise.Socket.PROTOCOL_UDP)
+  local server, err
+  if config.osc_listen_host == "0.0.0.0" then
+    server, err = renoise.Socket.create_server(
+      config.osc_listen_port, renoise.Socket.PROTOCOL_UDP)
+  else
+    server, err = renoise.Socket.create_server(
+      config.osc_listen_host, config.osc_listen_port, renoise.Socket.PROTOCOL_UDP)
+  end
   if not server then
     renoise.app():show_warning("AIDJ: failed to open OSC server on port " ..
       config.osc_listen_host .. ":" .. config.osc_listen_port .. ": " .. tostring(err))
     return nil, tostring(err)
   end
 
-  server:run({
+  _notifier = {
     socket_message = function(socket, data)
+      _receive_count = _receive_count + 1
       local ok, path, types, args = pcall(osc_protocol.decode_message, data)
       if ok and path then
+        _last_path = path
         local dispatched, dispatch_err = pcall(M.dispatch, path, args, types)
         if not dispatched then
+          _last_error = tostring(dispatch_err)
           print("AIDJ: OSC handler error " .. tostring(path) .. ": " .. tostring(dispatch_err))
         end
       elseif not ok then
+        _last_error = tostring(path)
         print("AIDJ: OSC decode error: " .. tostring(path))
       end
     end,
     socket_error = function(error_message)
       renoise.app():show_warning("AIDJ: socket err: " .. tostring(error_message))
     end,
-  })
+  }
+  server:run(_notifier)
 
   _server = server
   ctx.osc_server = server
@@ -136,6 +184,7 @@ function M.deinit()
     _server:close()
     _server = nil
   end
+  _notifier = nil
 end
 
 return M

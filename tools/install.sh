@@ -9,6 +9,15 @@ if [[ -z "$TARGET" ]]; then
   shopt -s nullglob
   candidates=(/mnt/c/Users/*/AppData/Roaming/Renoise/V*/Scripts/Tools)
   shopt -u nullglob
+  valid_candidates=()
+  for candidate in "${candidates[@]}"; do
+    version_dir="${candidate%/Scripts/Tools}"
+    version="${version_dir##*/}"
+    if [[ "$version" =~ ^V[0-9]+([.][0-9]+)*$ ]]; then
+      valid_candidates+=("$candidate")
+    fi
+  done
+  candidates=("${valid_candidates[@]}")
   if (( ${#candidates[@]} == 0 )); then
     echo "Renoise Tool directory not found. Set AIDJ_RENOISE_TOOL_DIR." >&2
     exit 2

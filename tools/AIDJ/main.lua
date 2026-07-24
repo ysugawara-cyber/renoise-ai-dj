@@ -35,6 +35,43 @@ renoise.tool():add_menu_entry {
   invoke = function() stop_session() end,
 }
 
+renoise.tool():add_menu_entry {
+  name = "Main Menu:Tools:AIDJ:Diagnostics:OSC Status",
+  invoke = function()
+    local status = osc_server.status()
+    renoise.app():show_status(
+      "AIDJ OSC running=" .. tostring(status.running) ..
+      " " .. tostring(status.address) .. ":" .. tostring(status.port) ..
+      " received=" .. tostring(status.received) ..
+      " last=" .. tostring(status.last_path) ..
+      " error=" .. tostring(status.last_error))
+  end,
+}
+
+renoise.tool():add_menu_entry {
+  name = "Main Menu:Tools:AIDJ:Diagnostics:OSC Self Test (BPM 174)",
+  invoke = function()
+    local ok, err = osc_server.self_test()
+    if ok then
+      renoise.app():show_status("AIDJ OSC self-test passed: BPM 174")
+    else
+      renoise.app():show_warning("AIDJ OSC self-test failed: " .. tostring(err))
+    end
+  end,
+}
+
+renoise.tool():add_menu_entry {
+  name = "Main Menu:Tools:AIDJ:Diagnostics:OSC Internal Loopback (BPM 175)",
+  invoke = function()
+    local ok, err = osc_server.loopback_test()
+    if ok then
+      renoise.app():show_status("AIDJ OSC internal loopback sent: BPM 175")
+    else
+      renoise.app():show_warning("AIDJ OSC internal loopback failed: " .. tostring(err))
+    end
+  end,
+}
+
 --------------------------------------------------------------------------------
 -- lifecycle
 --------------------------------------------------------------------------------
@@ -63,7 +100,7 @@ function start_session()
     return
   end
 
-  renoise.app():show_status("AIDJ session started (OSC 127.0.0.1:" ..
+  renoise.app():show_status("AIDJ session started (OSC " .. config.osc_listen_host .. ":" ..
     config.osc_listen_port .. ")")
 end
 

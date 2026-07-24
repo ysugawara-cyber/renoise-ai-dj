@@ -175,6 +175,9 @@ host/.venv/bin/python host/osc/verify_roundtrip.py
 - `host/osc/outbox/*.json`が残る: bridge停止またはproducer不具合。
 - `host/osc/sent/*.err`: JSON/schema/型検証または送信に失敗した隔離メッセージ。内容を確認後、原因を直して再送してください。
 - heartbeatが古い: RenoiseでAIDJ Sessionが停止、status bind/firewall、またはWSL IP設定を確認します。
+- heartbeatは更新されるが操作が反映されない: `Tools → AIDJ → Diagnostics → OSC Internal Loopback (BPM 175)`を実行します。`OSC Status`が`received=1 last=/ai/bpm error=-`ならTool内部は正常です。
+- Internal Loopbackが`received=0`のまま: Reload Tools前のUDP socketがRenoiseプロセス内に残っている可能性があります。XRNSを保存してRenoiseを完全終了し、PowerShellの`Get-NetUDPEndpoint -LocalPort 8080 -ErrorAction SilentlyContinue`が何も返さないことを確認してから再起動します。
+- Internal Loopbackは通るがWSLから届かない: Windows Defender FirewallでRenoiseのUDP 8080を許可します。Windows 11のHyper-V Firewallが有効な環境ではWSL用規則も確認してください。
 
 ## セキュリティ
 
