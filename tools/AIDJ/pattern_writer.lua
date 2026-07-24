@@ -13,7 +13,10 @@ local function track_num(track_id)
   if type(track_id) == "string" then
     local lower = string.lower(track_id)
     if lower == "master" then
-      return #renoise.song().tracks
+      for i, track in ipairs(renoise.song().tracks) do
+        if track.type == renoise.Track.TRACK_TYPE_MASTER then return i end
+      end
+      return nil
     end
   end
   return nil
@@ -237,7 +240,11 @@ function M.set_fx_param(track_id, fx_index, param_index, value)
   local tn = track_num(track_id)
   if not tn then return false end
   local tr = renoise.song():track(tn)
-  local fx = tr.devices[tonumber(fx_index) + 3]  -- skip TrackVolPan + #Send
+  local first_fx = 2  -- skip TrackVolPan
+  if tr.devices[2] and string.find(string.lower(tr.devices[2].name or ""), "#send", 1, true) then
+    first_fx = 3
+  end
+  local fx = tr.devices[tonumber(fx_index) + first_fx]
   if not fx then return false end
   local param = fx.parameters[tonumber(param_index) + 1]
   if not param then return false end

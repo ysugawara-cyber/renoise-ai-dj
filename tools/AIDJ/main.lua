@@ -35,11 +35,6 @@ renoise.tool():add_menu_entry {
   invoke = function() stop_session() end,
 }
 
-renoise.tool():add_menu_entry {
-  name = "Main Menu:Tools:AIDJ:Reload Generated Lua",
-  invoke = function() reload_generated() end,
-}
-
 --------------------------------------------------------------------------------
 -- lifecycle
 --------------------------------------------------------------------------------
@@ -51,13 +46,22 @@ function start_session()
   end
   _running = true
 
-  pattern_writer.init(config, package.aidj)
-  scene_launcher.init(config, package.aidj)
-  cue_router.init(config, package.aidj)
-  midi_router.init(config, package.aidj)
-  status_pub.init(config, package.aidj)
-  status_pub.set_grid(grid_ctl)
-  osc_server.init(config, package.aidj)
+  local ok, err = pcall(function()
+    pattern_writer.init(config, package.aidj)
+    scene_launcher.init(config, package.aidj)
+    cue_router.init(config, package.aidj)
+    midi_router.init(config, package.aidj)
+    local status_ok, status_err = status_pub.init(config, package.aidj)
+    if not status_ok then error("status publisher: " .. tostring(status_err)) end
+    status_pub.set_grid(grid_ctl)
+    local osc_ok, osc_err = osc_server.init(config, package.aidj)
+    if not osc_ok then error("OSC server: " .. tostring(osc_err)) end
+  end)
+  if not ok then
+    stop_session()
+    renoise.app():show_warning("AIDJ session start failed: " .. tostring(err))
+    return
+  end
 
   renoise.app():show_status("AIDJ session started (OSC 127.0.0.1:" ..
     config.osc_listen_port .. ")")
@@ -73,27 +77,6 @@ function stop_session()
   scene_launcher.deinit()
   _running = false
   renoise.app():show_status("AIDJ session stopped")
-end
-
-function reload_generated()
-  local path = tool_dir .. "/generated"
-  local cmd
-  if package.config:sub(1, 1) == "\\" then
-    cmd = 'dir /b "' .. path .. '\\*.lua"'
-  else
-    cmd = 'ls "' .. path .. '/*.lua" 2>/dev/null'
-  end
-  local pipe = io.popen(cmd)
-  if not pipe then return end
-  local lines = {}
-  for line in pipe:lines() do
-    local full = path .. "/" .. line
-    local ok, err = pcall(dofile, full)
-    if not ok then
-      renoise.app():show_warning("Reload failed: " .. full .. ": " .. tostring(err))
-    end
-  end
-  pipe:close()
 end
 
 renoise.tool().app_release_document_observable:add_notifier(function()

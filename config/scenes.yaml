@@ -1,5 +1,5 @@
 # config/scenes.yaml
-# Declares the song's sequencer scene mapping.
+# Declares operator/OpenCode scene metadata. Lua runtime does not parse this file.
 # slot index in Renoise corresponds to scene id sent via /ai/scene.
 
 scenes:

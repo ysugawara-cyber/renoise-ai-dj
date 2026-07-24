@@ -1,10 +1,10 @@
 -- validate_dryrun.lua
--- Runs a generated Lua file under pcall() to check for forbidden operations
--- BEFORE the file is dispatched. Returns exit code 0 on success.
+-- Scans forbidden tokens and checks Lua syntax without executing the target.
+-- Returns exit code 0 on success. Kept under the historical dry-run name.
 --
 -- Usage: lua tools/AIDJ/validate_dryrun.lua path/to/generated.lua
 --
--- Designed to run under Renoise's Lua 5.1 interpreter AND stock lua5.1.
+-- Supports Lua 5.1 (loadstring) and Lua 5.2+ (load).
 
 local FORBIDDEN = {
   "os%.execute", "io%.popen", "io%.read",
@@ -33,25 +33,23 @@ for _, pat in ipairs(FORBIDDEN) do
   end
 end
 
--- load() replaces loadstring() in Lua 5.2+; Renoise uses Lua 5.1 (loadstring),
--- stock Lua 5.4 uses load(). Support both.
-local fn, err
-if load then
-  fn, err = load(src, path, "t")
-elseif loadstring then
-  fn, err = loadstring(src, path)
-else
-  print("no loader available")
-  os.exit(1)
+local function check_syntax(source, chunk_name)
+  if loadstring then
+    return loadstring(source, chunk_name)
+  end
+  if load then
+    return load(source, chunk_name, "t")
+  end
+  return nil, "no loader available"
 end
+
+local fn, err = check_syntax(src, path)
 if not fn then
   print("syntax error: " .. tostring(err))
   os.exit(1)
 end
 
--- Running the file would touch Renoise APIs available only inside the live Tool;
--- here we only verify it parses cleanly. We deliberately do NOT pcall it to
--- avoid loading partial state into the validator host.
+-- Never call fn: generated code is not executed by this validator.
 
 print("OK")
 os.exit(0)

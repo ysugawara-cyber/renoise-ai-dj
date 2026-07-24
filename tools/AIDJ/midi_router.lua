@@ -29,15 +29,18 @@ local function parse(bytes)
   local kind = status - channel  -- status & 0xF0
   local m = { channel = channel, kind = kind }
   if kind == 0x80 or kind == 0x90 then
+    if #bytes < 3 or bytes[2] < 0 or bytes[2] > 127 or bytes[3] < 0 or bytes[3] > 127 then return nil end
     m.type = "note"
     m.note = bytes[2]
     m.velocity = bytes[3]
     m.is_note_on = (kind == 0x90) and (m.velocity > 0)
   elseif kind == 0xB0 then
+    if #bytes < 3 or bytes[2] < 0 or bytes[2] > 127 or bytes[3] < 0 or bytes[3] > 127 then return nil end
     m.type = "cc"
     m.cc = bytes[2]
     m.value = bytes[3]
   elseif kind == 0xE0 then
+    if #bytes < 3 or bytes[2] < 0 or bytes[2] > 127 or bytes[3] < 0 or bytes[3] > 127 then return nil end
     m.type = "pitchbend"
     m.value = bytes[3] * 128 + bytes[2]
   else
@@ -48,7 +51,7 @@ end
 
 local function handle_apc(bytes)
   local msg = parse(bytes)
-  if not msg then return end
+  if not msg or msg.channel ~= 0 then return end
   if msg.is_note_on then
     local row = 7 - math.floor(msg.note / 8)
     local col = msg.note % 8
@@ -135,16 +138,17 @@ end
 
 local function handle_mix(bytes)
   local msg = parse(bytes)
-  if not msg then return end
+  if not msg or msg.channel ~= 0 then return end
   if msg.is_note_on then
     local pw = require "pattern_writer"
     if msg.note >= 1 and msg.note <= 24 then
       local tn = math.floor((msg.note - 1) / 3) + 1
       if tn >= 1 and tn <= 8 then
         local tk = renoise.song():track(tn)
-        if msg.note % 3 == 0 then
+        local button = msg.note % 3
+        if button == 0 then
           pw.set_solo(tostring(tn), tk.solo_state and 0 or 1)
-        else
+        elseif button == 1 then
           local active = (tk.mute_state == renoise.Track.MUTE_STATE_MUTED)
           pw.set_mute(tostring(tn), active and 0 or 1)
         end
@@ -172,9 +176,9 @@ local function handle_mix(bytes)
       elseif mi == 4 then
         pw.set_fx_param("7", 1, 0, v)
       elseif mi == 5 then
-        pw.set_fx_param("master", 0, 1, v)
+        pw.set_fx_param("master", 0, 0, v)
       elseif mi == 6 then
-        pw.set_fx_param("2", 0, 1, v)
+        pw.set_fx_param("2", 0, 0, v)
       elseif mi == 7 then
         pw.set_fx_param("7", 2, 0, v)
       end

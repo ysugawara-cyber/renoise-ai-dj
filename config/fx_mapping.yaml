@@ -1,6 +1,6 @@
 # config/fx_mapping.yaml
-# Per-track FX device slot declarations. Used by the MIDImix fader banks
-# to map CC values to specific FX device params.
+# Per-track FX device design reference for building an XRNS template.
+# The current Lua runtime does not parse this file. Verify placeholders manually.
 
 tracks:
   "1":  # drums
@@ -35,8 +35,19 @@ tracks:
     fx: []
   "7":  # fx
     fx:
+      - name: "Rev"
+        device: "#Reverb"
+        params: [dry_wet]
+      - name: "Delay"
+        device: "#Delay"
+        params: [dry_wet]
       - name: "Bit"
-        device: "#Cabinet"        # placeholder - real device TBD on template
+        device: "#Cabinet"
         params: [drive]
   "8":  # vox
     fx: []
+  master:
+    fx:
+      - name: "Filter"
+        device: "#Digital Filter"
+        params: [cutoff, resonance]

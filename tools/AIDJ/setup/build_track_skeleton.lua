@@ -10,7 +10,7 @@
 --
 -- 手動で残す作業:
 --   - 楽器 / サンプルを各トラックに割当
---   - CUE bus(Send Track) を 9 番に追加し、各トラックの #Send デバイスでルーティング
+--   - CUE bus(Send Track) を Master 後(通常 track 10)に追加し、各トラックをルーティング
 --   - FX デバイス(#Compressor / #Reverb / #Distortion 等)を fx_mapping.yaml の順に挿入
 --   - テンプレートを .xrns として File -> Save As で保存
 
@@ -83,16 +83,23 @@ local function ensure_scenes()
   local song = renoise.song()
   local seq = song.sequencer
   local pat_seq = seq.pattern_sequence
-  if #pat_seq >= #SCENES then
-    log("pattern_sequence has " .. #pat_seq .. " slots, skip")
-    return
-  end
-  local need = #SCENES - #pat_seq
+  local need = math.max(0, #SCENES - #pat_seq)
   for _ = 1, need do
-    local new_idx = seq:insert_new_pattern_at(#pat_seq + 1)
-    local pat = song:pattern(new_idx)
+    local slot = #seq.pattern_sequence + 1
+    seq:insert_new_pattern_at(slot)
+    local pattern_number = seq.pattern_sequence[slot]
+    local pat = song:pattern(pattern_number + 1)
     if pat and pat.number_of_lines ~= PATTERN_LINES then
       pcall(function() pat.number_of_lines = PATTERN_LINES end)
+    end
+  end
+  pat_seq = seq.pattern_sequence
+  for slot = 1, math.min(#pat_seq, #SCENES) do
+    local pat_idx = pat_seq[slot]
+    local pat = song:pattern(pat_idx + 1)
+    if pat then
+      pcall(function() pat.number_of_lines = SCENES[slot].pattern_lines end)
+      pcall(function() pat.name = SCENES[slot].name end)
     end
   end
   log("added " .. need .. " scenes (256-line patterns) to pattern_sequence")
@@ -107,7 +114,7 @@ local function main()
   ensure_tracks()
   name_and_color_tracks()
   ensure_scenes()
-  log("done -- manual steps: instruments, CUE bus (#9), FX devices, save as .xrns")
+  log("done -- manual steps: instruments, CUE bus (normally #10), FX devices, save as .xrns")
   renoise.app():show_status(
     "AIDJ skeleton built. See log for manual steps (instruments, CUE bus, FX).")
 end
