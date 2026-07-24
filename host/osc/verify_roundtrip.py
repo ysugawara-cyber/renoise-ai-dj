@@ -77,53 +77,90 @@ def run() -> int:
     print("AIDJ roundtrip verification (requires Renoise + bridge running)")
     failures = 0
 
-    # capture baseline bpm once (mute/solo are toggles; capture and restore)
+    # Capture every value changed by this destructive integration test.
     base = read_state()
     base_bpm = base.get("bpm")
-    base_mute = base.get("tracks", {}).get("1", {}).get("mute")
-    if base_bpm is None:
-        print("  WARN: session.json empty -- is osc_bridge running?")
+    base_track = base.get("tracks", {}).get("1", {})
+    base_mute = base_track.get("mute")
+    base_solo = base_track.get("solo")
+    base_volume = base_track.get("volume")
+    heartbeat = base.get("renoise_heartbeat", 0)
+    if base_bpm is None or time.time() - heartbeat > 5:
+        print("  WARN: session.json is missing or stale -- is Renoise + bridge running?")
         return 2
-
-    # 1) /ai/bpm i
+    if any(value is None for value in (base_mute, base_solo, base_volume)):
+        print("  WARN: track 1 status is incomplete; refusing a test that cannot be restored")
+        return 2
+    if not float(base_bpm).is_integer():
+        print("  WARN: current BPM is fractional and /ai/bpm cannot restore it exactly")
+        return 2
     target_bpm = 174 if base_bpm != 174.0 else 200
-    if not send("/ai/bpm", target_bpm):
-        return 2
-    ok = wait_for(lambda s: abs(round(float(s.get("bpm", -999)), 1) - float(target_bpm)) < 0.1)
-    if not check(f"/ai/bpm i:{target_bpm}", ok, f"-> bpm={read_state().get('bpm')}"):
-        failures += 1
+    target_mute = not bool(base_mute)
+    target_solo = not bool(base_solo)
+    target_volume = 500 if base_volume is None or abs(float(base_volume) - 0.5) > 0.05 else 750
 
-    # 2) /ai/mixer/mute "1" 1 -- mute is a toggle in status? No: it's a value
-    send("/ai/mixer/mute", "1", 1)
-    ok = wait_for(lambda s: s.get("tracks", {}).get("1", {}).get("mute") is True)
-    cur = read_state().get("tracks", {}).get("1", {}).get("mute")
-    if not check('/ai/mixer/mute "1" 1', ok, f"-> mute={cur}"):
-        failures += 1
+    try:
+        if not send("/ai/bpm", target_bpm):
+            failures += 1
+        else:
+            ok = wait_for(lambda s: abs(float(s.get("bpm", -999)) - target_bpm) < 0.1)
+            failures += 0 if check(f"/ai/bpm i:{target_bpm}", ok, f"-> bpm={read_state().get('bpm')}") else 1
 
-    # 3) /ai/mixer/solo "1" 1
-    send("/ai/mixer/solo", "1", 1)
-    ok = wait_for(lambda s: s.get("tracks", {}).get("1", {}).get("solo") is True)
-    cur = read_state().get("tracks", {}).get("1", {}).get("solo")
-    if not check('/ai/mixer/solo "1" 1', ok, f"-> solo={cur}"):
-        failures += 1
+        if not send("/ai/mixer/mute", "1", int(target_mute)):
+            failures += 1
+        else:
+            ok = wait_for(lambda s: s.get("tracks", {}).get("1", {}).get("mute") is target_mute)
+            cur = read_state().get("tracks", {}).get("1", {}).get("mute")
+            failures += 0 if check(f'/ai/mixer/mute "1" {int(target_mute)}', ok, f"-> mute={cur}") else 1
 
-    # 4) /ai/mixer/volume "1" 500 -> normalised 0.35..0.36
-    send("/ai/mixer/volume", "1", 500)
-    time.sleep(0.3)
-    v = read_state().get("tracks", {}).get("1", {}).get("volume")
-    ok = v is not None and 0.49 <= v <= 0.51
-    if not check('/ai/mixer/volume "1" 500 (int*1000)', ok, f"-> volume={v}"):
-        failures += 1
+        if not send("/ai/mixer/solo", "1", int(target_solo)):
+            failures += 1
+        else:
+            ok = wait_for(lambda s: s.get("tracks", {}).get("1", {}).get("solo") is target_solo)
+            cur = read_state().get("tracks", {}).get("1", {}).get("solo")
+            failures += 0 if check(f'/ai/mixer/solo "1" {int(target_solo)}', ok, f"-> solo={cur}") else 1
 
-    # restore (bpm は必ず int で送る。float は Lua 側でデコードできず
-    # ハンドラのデフォルト 174 にフォールバックする)
-    if base_bpm is not None:
-        send("/ai/bpm", int(round(float(base_bpm))))
-    if base_mute is not None:
-        send("/ai/mixer/mute", "1", 1 if base_mute else 0)
-    send("/ai/mixer/solo", "1", 0)
+        if not send("/ai/mixer/volume", "1", target_volume):
+            failures += 1
+        else:
+            expected = target_volume / 1000.0
+            ok = wait_for(lambda s: abs(float(s.get("tracks", {}).get("1", {}).get("volume", -1)) - expected) < 0.02)
+            volume = read_state().get("tracks", {}).get("1", {}).get("volume")
+            failures += 0 if check(f'/ai/mixer/volume "1" {target_volume}', ok, f"-> volume={volume}") else 1
+    finally:
+        restore_commands = [
+            ("/ai/bpm", (int(base_bpm),)),
+            ("/ai/mixer/mute", ("1", int(bool(base_mute)))),
+            ("/ai/mixer/solo", ("1", int(bool(base_solo)))),
+            ("/ai/mixer/volume", ("1", int(round(float(base_volume) * 1000)))),
+        ]
+        restore_results = []
+        for restore_path, restore_args in restore_commands:
+            try:
+                restore_results.append(send(restore_path, *restore_args))
+            except Exception as exc:
+                print(f"  restore send failed for {restore_path}: {exc}")
+                restore_results.append(False)
+        try:
+            restored = all(restore_results) and wait_for(
+                lambda s: (
+                    abs(float(s.get("bpm", -999)) - float(base_bpm)) < 0.1
+                    and s.get("tracks", {}).get("1", {}).get("mute") is bool(base_mute)
+                    and s.get("tracks", {}).get("1", {}).get("solo") is bool(base_solo)
+                    and abs(
+                        float(s.get("tracks", {}).get("1", {}).get("volume", -1))
+                        - float(base_volume)
+                    ) < 0.02
+                )
+            )
+        except Exception as exc:
+            print(f"  restore verification failed: {exc}")
+            restored = False
+        if not restored:
+            failures += 1
+            print("  [FAIL] original state restoration was not confirmed")
 
-    print(f"\nresult: {4 - failures}/4 passed, {failures} failed")
+    print(f"\nresult: {max(0, 4 - failures)}/4 checks passed, {failures} failures")
     return 0 if failures == 0 else 1
 
 

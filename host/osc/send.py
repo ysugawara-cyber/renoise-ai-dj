@@ -10,42 +10,45 @@ Usage (from repo root, inside the WSL venv):
     host/.venv/bin/python host/osc/send.py /ai/note 1 "C-4" 100 1
 """
 
-import json
 import sys
-import time
-import uuid
 from pathlib import Path
+
+from message_queue import MessageValidationError, SIGNATURES, queue_message
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTBOX = ROOT / "host/osc/outbox"
-OUTBOX.mkdir(parents=True, exist_ok=True)
-
-if len(sys.argv) < 2:
-    print("usage: send.py <path> [args...]")
-    sys.exit(2)
-
-path = sys.argv[1]
-args_raw = sys.argv[2:]
-
-
-def coerce(a: str):
+def coerce(a: str) -> int | str:
     try:
-        if "." in a:
-            return float(a)
         return int(a)
     except ValueError:
-        return a
+        try:
+            value = float(a)
+        except ValueError:
+            return a
+        if value.is_integer():
+            return int(value)
+        raise MessageValidationError(f"non-integral floats are unsupported: {a}")
 
 
-args = [coerce(a) for a in args_raw]
+def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv:
+        print("usage: send.py <path> [args...]", file=sys.stderr)
+        return 2
+    path = argv[0]
+    try:
+        signature = SIGNATURES.get(path)
+        if signature is None or len(argv[1:]) != len(signature):
+            raise MessageValidationError(f"invalid path or argument count: {path}")
+        args = [value if expected is str else coerce(value)
+                for value, expected in zip(argv[1:], signature)]
+        queued = queue_message(OUTBOX, path, args)
+    except MessageValidationError as exc:
+        print(f"invalid message: {exc}", file=sys.stderr)
+        return 2
+    print(f"queued {path} {args} -> {queued.name}")
+    return 0
 
-msg = {
-    "id": uuid.uuid4().hex,
-    "ts": int(time.time() * 1000),
-    "path": path,
-    "args": args,
-}
 
-p = OUTBOX / f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}.json"
-p.write_text(json.dumps(msg, indent=2))
-print(f"queued {path} {args} -> {p.name}")
+if __name__ == "__main__":
+    sys.exit(main())
