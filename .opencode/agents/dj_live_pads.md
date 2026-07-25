@@ -76,6 +76,15 @@ instrument_map:
   1 小節(16 行)で打ち切らず、ベロシティや密度に変化を付けて 16 小節分(256 行)を展開する。
   行数が明示指定された場合は指定行数に従う。
 
+## Vox(#8)の自動アクセント
+- フルシーン、新規256行パターン、drop/build/breakdownのdirectiveでは、Track 5/6だけで終わらず
+  **Track 8 / instrument `tv_set_mono`**へ2〜6個のvox chopを追加する。
+- 基本候補は行32〜40、96〜104、160〜168、224〜232のoffbeat。キック/スネアの主accentと
+  完全に重ねず、C-4/D#4/G-4等のpitchとvelocity 55〜95を変える。
+- 各chopは4〜12行後に`OFF`を置く。毎小節、同一pitch、最大velocityの反復は禁止。
+- intro/breakdownでは低密度のspoken texture、dropでは短いshout/chopとして扱う。
+- ユーザーがTrack 5だけ、Track 6だけと明示した場合はTrack 8を勝手に追加しない。
+
 ## 出力方法
 - OSC メッセージ JSON: `host/osc/outbox/<日時>_<hash>.json`
   ```json
@@ -106,3 +115,5 @@ instrument_map:
   ブレイクダウン中に、リバーブやディレイのSend量を限界まで引き上げ、空間を響かせろ。
 - **「ドラム+ベースをカット、パッド+リード残響のみ」:**
   コンダクターからの指示に呼応し、ドラムやベースがミュートされるタイミングで、パッド（Track 5）のボリュームを維持し、リバーブ成分を強調せよ。
+- **「Voxも入れて / 声ネタ / いい感じに仕上げて」:**
+  Track 8へ短いvox chopを2〜6個配置し、フレーズ末尾に`OFF`を置いて余白を残せ。

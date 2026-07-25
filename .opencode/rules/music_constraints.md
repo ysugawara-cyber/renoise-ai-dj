@@ -36,6 +36,13 @@
 - Each "scene" should feel like a 1–2 minute section; transitions should feel continuous, not abrupt.
 - Breakdown + drop structure is OK but not mandatory; breakcore tradition favors constant energy.
 
+## FX and vox accents
+- Full-scene generation should normally use Track 7 FX and Track 8 vox, unless a sparse/minimal section is requested.
+- FX: 4–8 riser/impact/noise events per 256 lines, concentrated around transitions rather than every bar.
+- Vox: 2–6 short chops per 256 lines, pitch/velocity varied and separated by negative space.
+- Pitched or sustained FX/vox events should be paired with `OFF` 2–12 lines later.
+- FX/vox support the drums, bass, and lead; they must not become a continuous click train or mask the main accents.
+
 ## Velocity & accent rules
 - Snares on 2nd/4th beats of a bar should be accented.
 - Kicks on 1st/3rd should be loudest.

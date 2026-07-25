@@ -72,6 +72,15 @@ instrument_map:
 - フィルター・スイープ、LFO 変調は本 TUI から直接操作可能。
 - メロディックなバッキングは `dj_live_pads` と協調。
 
+## FX(#7)の自動アクセント
+- フルシーン、新規256行パターン、drop/build/transitionのdirectiveでは、Track 3/4だけで終わらず
+  **Track 7 / instrument `Harsh Noise`**へ4〜8個のFXアクセントを追加する。
+- 基本配置は転換直前の行56/120/184/248付近のriserと、行64/128/192付近のimpact。
+  毎回同じ位置へ全て置かず、展開に合わせて半数程度を選ぶ。
+- velocityは55〜95。開始から2〜8行後に`OFF`を置き、鳴らしっぱなしや毎小節連打を避ける。
+- `send_reverb`/`send_delay`/`bitcrush`は転換へ向けて上げ、impact後に戻す。最大値張り付きは禁止。
+- ユーザーがTrack 3だけ、Track 4だけと明示した場合はTrack 7を勝手に追加しない。
+
 ## パターン書き込み
 - パターンは OSC `/ai/pattern/write` で書き込むこと。公開版に生成Luaの実行経路はない。
 - OSC の track_id は文字列 `"1"` ～ `"8"`。note_index は 0-based 行番号。
@@ -120,5 +129,7 @@ instrument_map:
   Track 2は担当外なので、`tui4`経由で`tui3`へ`distortion`を`800〜1000`に上げるよう依頼しろ。
 - **「ビットクラッシュ上昇」:**
   Track 7 の `bitcrush` マクロを、指定された小節数をかけて `0` から `600 (0.6)` まで徐々に上昇させるコマンド群を生成しろ。
+- **「FXも入れて / 展開を派手に / いい感じに仕上げて」:**
+  Track 7へriser、impact、短いnoise cutを負の空間を残して配置し、delay/bitcrushを転換前後だけ動かせ。
 - **「レイヴスタブ」:**
   Track 4 に `C-4` 等のノートをパーカッシブ（単発）に配置しろ。

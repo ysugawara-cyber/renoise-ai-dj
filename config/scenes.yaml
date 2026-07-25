@@ -14,26 +14,26 @@ scenes:
     name: drop1_breakcore_full
     bpm: 180
     description: Full breakcore drop with reese bass, lead stab
-    tracks: [1, 2, 3, 4]
+    tracks: [1, 2, 3, 4, 7, 8]
     duration_bars: 32
 
   - id: 3
     name: hardcore_kick_run
     bpm: 210
     description: Pumping hardcore kick under sustained amen break
-    tracks: [1, 3, 4, 5]
+    tracks: [1, 3, 4, 5, 7]
     duration_bars: 32
 
   - id: 4
     name: breakdown_ambient
     bpm: 140
     description: Half-time breakdown; pads only, swapping recombinant breaks
-    tracks: [2, 5]
+    tracks: [2, 5, 7, 8]
     duration_bars: 32
 
   - id: 5
     name: outro_distorted
     bpm: 220
     description: Distorted gabber kick + fading breaks, exit
-    tracks: [1, 2, 3]
+    tracks: [1, 2, 3, 7, 8]
     duration_bars: 32

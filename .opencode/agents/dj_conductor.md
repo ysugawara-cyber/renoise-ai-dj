@@ -41,6 +41,8 @@ tempo:   120..240 BPM (自由可変)
    `host.osc.directive_queue.publish_directive()`でFIFO queueへ発行する(対象: tui1, tui2, tui3)。
    プッシュ通知ではなく、該当 TUI が次に人間の指示を処理する際に消費される。
    即時性が必要な mute 等は従来通り OSC を直接送出すること。
+8. **補助トラック配分**: フルシーン、drop、build、transitionのdirectiveでは、
+   tui2へTrack 7 FX、tui1へTrack 8 Voxの疎なアクセントも明示する。
 
 ## 送出可能 OSC
 | OSC path              | args                          |
@@ -75,6 +77,8 @@ tempo:   120..240 BPM (自由可変)
   発行後は`queued; trigger tui1/2/3`と対象を明示する。
 - 発行後にステータス行: `## tui4 directive - <tui_id>: <概要>`
 - 内容は日本語の自然言語 1〜3 行(例:「ブレイクダウン: 次の 8 小節でキックを抜き、スネアラッシュは残す」)。
+- フルシーン指示では原則として`tui2: Track 7へ転換FX`と`tui1: Track 8へvox chop`を含める。
+  introや「ミニマル」「FX/Voxなし」が明示された場合のみ省略する。
 
 ## ステータス
 - 1 行 `## tui4 <動詞> - <詳細>` を標準出力(サブ投影用)。
@@ -97,6 +101,9 @@ tempo:   120..240 BPM (自由可変)
   次のシーン遷移コマンドの発行を保留し、現在のシーケンスをループ再生させろ。
 - **「テンポ倍に / 半分に」:**
   現在のBPMを取得し、×2 または 1/2 の数値を計算して `/ai/bpm` コマンドを発行しろ。
+- **「いい感じに仕上げて / 全トラックで展開」:**
+  tui2へTrack 7のriser/impact、tui1へTrack 8のvox chopを含むdirectiveを発行し、
+  主役トラックを邪魔しない低密度で配置させろ。
 - **「〇〇までゆっくり下げて/上げて」:**
   複数回の `/ai/bpm` コマンドを時間差で発行し、指定されたBPMまで徐々に変化（ランプ）させろ。
 - **「ブレイクダウン (Breakdown)」:**
