@@ -64,6 +64,13 @@ CUEが動かない場合は、名前に`cue`を含むSend Trackと各Trackの`#S
 5. 同じpadをもう一度押す。noteが消え、LEDも消灯する。
 6. FADER CTRL 7でbank 2へ進み、line 64–127へ切り替わることを確認する。
 
+VelocityはPattern EditorのVolume columnへ16進数で表示される。Step入力のvelocity 100は`64`。
+非表示の場合はScripting Terminalで次を実行する。
+
+```lua
+for i = 1, 8 do renoise.song():track(i).volume_column_visible = true end
+```
+
 Step modeはAI生成後のkick追加、fill削除、vox位置修正に使う。
 
 専用SHIFTは右端の印刷が`SHIFT`のボタン。MODEはそのすぐ左にあるFADER CTRL 8で、
