@@ -66,6 +66,9 @@ CUEが動かない場合は、名前に`cue`を含むSend Trackと各Trackの`#S
 
 Step modeはAI生成後のkick追加、fill削除、vox位置修正に使う。
 
+専用SHIFTは右端の印刷が`SHIFT`のボタン。MODEはそのすぐ左にあるFADER CTRL 8で、
+SHIFTとは別ボタン。SHIFTを押すとTrack/bank overlayになり、MODE切替は行わない。
+
 ## 5. APC Scene And Transport
 
 目的: 演奏を止めずにSceneを切り替える。
@@ -84,7 +87,7 @@ Step modeはAI生成後のkick追加、fill削除、vox位置修正に使う。
 目的: patternを壊さずone-shotを追加する。
 
 1. 再生を開始する。
-2. FADER CTRL 8を押し、GridをamberのPerform modeへ切り替える。
+2. 専用SHIFTのすぐ左にあるFADER CTRL 8 (MODE)を押し、GridをamberのPerform modeへ切り替える。
 3. Track 7のcolumnにあるpadを押し、Harsh Noiseを鳴らす。
 4. Track 8のcolumnにあるpadを押し、voxを鳴らす。
 5. Renoiseのnote column 2以降へ一時note/OFFが入り、通過後に消えることを確認する。

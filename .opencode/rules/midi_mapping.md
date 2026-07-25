@@ -37,6 +37,9 @@ Renoise の MIDI Map XML は使用しない（Lua 側で完結）。
 
 ### FADER CTRL ボタン (パッド下横 8 個)
 
+専用SHIFT (note 122)はこの8個に含めない。Note 107のMODEは、専用SHIFTのすぐ左にある
+8番目のFADER CTRLボタン。
+
 | ボタン | ノート | 用途 |
 |--------|--------|------|
 | 1 (左) | 100 | **Transport Play** |
@@ -53,6 +56,9 @@ Renoise の MIDI Map XML は使用しない（Lua 側で完結）。
 | ノート | 用途 |
 |--------|------|
 | 122 | Track/bank選択、Scene 9–16、bank clearのmodifier |
+
+- SHIFTはmode切替ではない。押している間だけmodifier layerを表示する。
+- SHIFT自体のLEDはAIDJで点灯制御しない。
 
 ### フェーダー (右側縦 9 本)
 
