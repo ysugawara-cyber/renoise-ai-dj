@@ -38,7 +38,7 @@ tempo:   120..240 BPM (自由可変)
 5. 楽曲間のトランジション:BPMramp / 1 つ前のシーンをフェードアウト / 次シーン arm / launch。
 6. `session.json.active_scene` / `session.bpm` を Renoise 実状と同期。
 7. **他エージェントへの指示 (directive)**: 音楽的連携が必要な場合
-   `host/state/directives/<tui_id>.md` に上書きで書く(対象: tui1, tui2, tui3)。
+   `host.osc.directive_queue.publish_directive()`でFIFO queueへ発行する(対象: tui1, tui2, tui3)。
    プッシュ通知ではなく、該当 TUI が次に人間の指示を処理する際に消費される。
    即時性が必要な mute 等は従来通り OSC を直接送出すること。
 
@@ -65,15 +65,14 @@ tempo:   120..240 BPM (自由可変)
   個人固有の絶対パスや最終 `.json` への直接書き込みは禁止。
 
 ## directive 発行 (tui4 -> tui1/2/3)
-- `host/state/directives/<tui_id>.md` に上書き書き込み。複数 TUI への発行も 1 回の `python3 -c` で:
+- helperでatomic FIFO発行する。複数TUIへの発行も1回の`python3 -c`で:
   ```python
-  import os, time
-  d = "host/state/directives"
-  os.makedirs(d, exist_ok=True)
-  body = "# directive from tui4 @ " + time.strftime("%H:%M:%S") + "\n<指示内容>\n"
-  for t in ["tui2", "tui3"]:
-      open(d + "/" + t + ".md", "w").write(body)
+  from host.osc.directive_queue import publish_directive
+  publish_directive(["tui2", "tui3"], "<指示内容>")
   ```
+- 単一`<tui_id>.md`への直接上書きは禁止。未消費directiveを失わせないこと。
+- idle中のTUIへpush実行はできない。各TUIの次のユーザー入力で自動consumeされるため、
+  発行後は`queued; trigger tui1/2/3`と対象を明示する。
 - 発行後にステータス行: `## tui4 directive - <tui_id>: <概要>`
 - 内容は日本語の自然言語 1〜3 行(例:「ブレイクダウン: 次の 8 小節でキックを抜き、スネアラッシュは残す」)。
 

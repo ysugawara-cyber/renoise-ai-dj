@@ -32,10 +32,11 @@ instrument_map:
 
 ## 速度最適化（最重要）
 - **目標: 全処理 30 秒以内。**
-- **最初のアクションは即座に `python3 -c` で書くこと。** 事前のファイル読み取りは一切不要。
+- **最初のアクションは必ず `python3 host/osc/directive_queue.py consume tui1`。**
+  出力されたdirectiveを今回のユーザー指示より先に反映してから、1回の`python3 -c`でOSCを書く。
 - **書き込み後の `ls` / `cat` / ファイル確認は一切禁止。** 完了報告のみでよい。
 - **session.json の読み取り禁止。** outbox glob 禁止。状態確認は conductor に任せる。
-- 例外: `host/state/directives/tui1.md` のみ、処理前に 1 コマンドで確認可(conductor からの指示)。
+- directive consumeは省略禁止。出力が空なら通常のユーザー指示を処理する。
 - outbox 全ファイルを **1 回の `python3 -c` で書き込む**。Lua 生成は省略。
 - 完了報告は **1 行のみ**: `## tui1 write <track> <summary>`。
 - Todo は最大 2 項目。
@@ -50,9 +51,13 @@ instrument_map:
 4. 1 行ステータス `## tui1 <動詞> <トラック> <詳細>` を標準出力。
 
 ## コンダクターからの directive 消費
-- ユーザー入力を処理する際、最初に `host/state/directives/tui1.md` の存在を 1 コマンドで確認する。
-- 存在すれば: 内容を今回のアクションに反映し、ファイルを削除、`## tui1 ack directive <概要>` を出力。
-- 無ければ: 通常通り処理する(確認に時間をかけない)。
+- 全ユーザー入力の最初に`python3 host/osc/directive_queue.py consume tui1`を実行する。
+- 出力があれば全件をFIFO順に今回のアクションへ反映し、最終statusの詳細へ`directive ack: <概要>`を含める。
+- consume出力先頭の`AIDJ_DIRECTIVE_TOKEN`を保持し、OSCを正常にqueueした後だけ
+  `python3 host/osc/directive_queue.py ack tui1 <token>`を実行する。失敗時はackしない。
+- directive由来のノートは再試行しても同じ結果になる`/ai/pattern/write`を使い、
+  再生位置依存の`/ai/note`は使わない。
+- helperがlegacy単一ファイルとFIFO queueをatomicに消費する。直接read/deleteしない。
 
 ## パターン書き込み
 - パターンは OSC `/ai/pattern/write` で書き込むこと。公開版に生成Luaの実行経路はない。
@@ -75,7 +80,7 @@ instrument_map:
 - OSC メッセージ JSON: `host/osc/outbox/<日時>_<hash>.json`
   ```json
   {"id":"<uuid>","ts":<ms>,"tui_id":"tui1","path":"/ai/pattern/write",
-   "args":["5","PAD01","00","C-4",100,"0Cxx"]}
+   "args":["5","Lucid Dream","00","C-4",100,"0Cxx"]}
   ```
 - `osc_bridge.py` が outbox を消費して Renoise に送る。
 

@@ -57,10 +57,12 @@
   - いずれの書込も `session.lock` の `fcntl` 排他ロックを取得してから行うこと。
 
 ## TUI 間指示 (directives)
-- conductor (tui4) から各 TUI への音楽的指示は `host/state/directives/<tui_id>.md` への
-  上書き書き込みで行う(`python3 -c` ワンライナー、OSC は経由しない)。
-- 各 TUI はユーザー入力処理時に自分の directive ファイルを確認・反映・削除する
-  (プッシュ通知ではなく次ターン消費)。
+- conductor (tui4) から各TUIへの音楽的指示は
+  `host.osc.directive_queue.publish_directive()`でatomic FIFO発行する(OSCは経由しない)。
+- 各TUIは全ユーザー入力の最初に`python3 host/osc/directive_queue.py consume <tui_id>`を
+  実行し、全directiveをFIFO順に反映する。OSC queue成功後だけ、consumeが返したtokenを
+  `python3 host/osc/directive_queue.py ack <tui_id> <token>`でackする。
+  失敗時はackせず次ターンで再試行する(プッシュ通知ではなく次ターン消費)。
 - 即時性が必要な操作 (mute / scene / bpm) は従来通り OSC outbox 経由で直接送る。
 
 ## 生成 Lua
