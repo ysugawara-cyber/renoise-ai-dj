@@ -147,6 +147,8 @@ Renoise MIDI Mapping XMLは使用しません。Lua Toolがデバイスを直接
 
 16 scene構成が標準です。APC右側ボタンでScene 1–8、SHIFT併用でScene 9–16を起動します。
 
+実機を初めて操作する場合は`docs/controller_tutorial.md`を順番に実施してください。
+
 ## 設定ファイルの役割
 
 - `config/macros.yaml`: bridgeが`/ai/fx/macro`を展開する**実行設定**。ハードウェアCCは定義しません。

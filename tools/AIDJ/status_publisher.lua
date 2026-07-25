@@ -92,6 +92,7 @@ function M.init(config, ctx)
         local t = song.transport
         local pos = t.playing and t.playback_pos or t.edit_pos
         require("pattern_writer").cleanup_performance_notes(pos.sequence, pos.line, t.playing)
+        require("midi_router").update_feedback()
         _grid.update_playback_position(pos.line, t.playing, pos.sequence)
       end
     end

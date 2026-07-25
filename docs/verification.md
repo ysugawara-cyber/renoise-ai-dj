@@ -100,6 +100,7 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 ### 4.1 MUTE / SOLO ボタン（MUTE: Note 1,4,7,…,22 / SOLO: Note 3,6,9,…,24）
 - MUTE button 1 (Note 1) を押す → Track 1 mute toggle。
 - SOLO button 1 (Note 3) を押す → Track 1 solo toggle。
+- mute時はMUTE LED、solo時はREC/ARM LEDが点灯し、Renoise GUIやTUIからの変更にも追従する。
 - 割当の詳細は `.opencode/rules/midi_mapping.md` と
   `tools/AIDJ/midi_router.lua` の `handle_mix` を参照。
 

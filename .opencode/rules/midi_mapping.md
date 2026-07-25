@@ -142,6 +142,7 @@ APC mini mk2 公式プロトコル (v1.0) 準拠:
 - Note: `3,6,9,12,15,18,21,24`
 - 計算式: `track = floor((note - 1) / 3) + 1`
 - 動作: 押下ごとに solo トグル
+- LED: MUTEはmute時、REC/ARMはsolo時に点灯。Renoise/TUI側の状態変更にも追従する。
 
 ### フェーダー
 

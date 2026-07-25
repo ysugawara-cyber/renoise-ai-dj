@@ -10,8 +10,9 @@
 --   (no .is_note_on / .cc / .value object fields)
 
 local M = {}
-local _ctx, _apc_in, _apc_out, _mix_in = nil, nil, nil, nil
+local _ctx, _apc_in, _apc_out, _mix_in, _mix_out = nil, nil, nil, nil, nil
 local _grid = nil
+local _mix_leds = {}
 
 -- APC pad note numbers: bottom row = 0-7, top row = 56-63
 -- Formula: note = (7 - row) * 8 + col  =>  row = 7 - floor(note/8), col = note % 8
@@ -47,6 +48,31 @@ local function parse(bytes)
     m.type = "other"
   end
   return m
+end
+
+local function send_mix_led(note, on)
+  if _mix_out then _mix_out:send {0x90, note, on and 127 or 0} end
+end
+
+function M.update_feedback()
+  if not _mix_out then return end
+  for track = 1, 8 do
+    local song_track = renoise.song().tracks[track]
+    if song_track then
+      local mute = song_track.mute_state == renoise.Track.MUTE_STATE_MUTED
+      local solo = song_track.solo_state == true
+      local mute_note = 1 + (track - 1) * 3
+      local solo_note = 3 + (track - 1) * 3
+      if _mix_leds[mute_note] ~= mute then
+        send_mix_led(mute_note, mute)
+        _mix_leds[mute_note] = mute
+      end
+      if _mix_leds[solo_note] ~= solo then
+        send_mix_led(solo_note, solo)
+        _mix_leds[solo_note] = solo
+      end
+    end
+  end
 end
 
 local function handle_apc(bytes)
@@ -137,6 +163,7 @@ local function handle_mix(bytes)
         end
       end
     end
+    M.update_feedback()
   elseif msg.type == "cc" then
     local pan_cc = {[16]=1, [20]=2, [24]=3, [28]=4, [46]=5, [50]=6, [54]=7, [58]=8}
     local cue_cc = {[17]=1, [21]=2, [25]=3, [29]=4, [47]=5, [51]=6, [55]=7, [59]=8}
@@ -167,6 +194,7 @@ end
 
 function M.init(config, ctx)
   _ctx = ctx
+  _mix_leds = {}
   _grid = require "grid_controller"
   _grid.init(config, ctx)
   for _, name in ipairs(renoise.Midi.available_input_devices()) do
@@ -185,10 +213,14 @@ function M.init(config, ctx)
         _apc_out = dev
         _grid.set_apc_out(_apc_out)
       end
+    elseif string.match(lower, "midi.mix") and not _mix_out then
+      local ok, dev = pcall(renoise.Midi.create_output_device, name)
+      if ok and dev then _mix_out = dev end
     end
   end
   if not _apc_in  then renoise.app():show_warning("AIDJ: APC mini not found") end
   if not _mix_in  then renoise.app():show_warning("AIDJ: MIDImix not found") end
+  M.update_feedback()
 end
 
 function M.deinit()
@@ -196,7 +228,15 @@ function M.deinit()
   if _apc_in  then _apc_in:close()  end
   if _apc_out then _apc_out:close() end
   if _mix_in  then _mix_in:close()  end
-  _apc_in, _apc_out, _mix_in, _grid = nil, nil, nil, nil
+  if _mix_out then
+    for track = 1, 8 do
+      send_mix_led(1 + (track - 1) * 3, false)
+      send_mix_led(3 + (track - 1) * 3, false)
+    end
+    _mix_out:close()
+  end
+  _apc_in, _apc_out, _mix_in, _mix_out, _grid = nil, nil, nil, nil, nil
+  _mix_leds = {}
 end
 
 function M.feedback_apc(note, color_mode)
