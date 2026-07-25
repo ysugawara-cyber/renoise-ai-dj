@@ -63,6 +63,7 @@
   実行し、全directiveをFIFO順に反映する。OSC queue成功後だけ、consumeが返したtokenを
   `python3 host/osc/directive_queue.py ack <tui_id> <token>`でackする。
   失敗時はackせず次ターンで再試行する(プッシュ通知ではなく次ターン消費)。
+- 手動トリガーは各TUIで`/d`を入力する。
 - 即時性が必要な操作 (mute / scene / bpm) は従来通り OSC outbox 経由で直接送る。
 
 ## 生成 Lua
