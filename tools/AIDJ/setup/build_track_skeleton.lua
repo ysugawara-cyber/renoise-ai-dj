@@ -113,11 +113,11 @@ local function ensure_scenes(initialize_existing)
     end
   end
   pat_seq = seq.pattern_sequence
-  local first_slot = initialize_existing and 1 or original_count + 1
-  for slot = first_slot, math.min(#pat_seq, #SCENES) do
+  for slot = 1, math.min(#pat_seq, #SCENES) do
     local pat_idx = pat_seq[slot]
     local pat = song:pattern(pat_idx + 1)
-    if pat then
+    local recover_partial = slot > 5 and pat and pat.is_empty and (pat.name or "") == ""
+    if pat and (initialize_existing or slot > original_count or recover_partial) then
       pcall(function() pat.number_of_lines = SCENES[slot].pattern_lines end)
       pcall(function() pat.name = SCENES[slot].name end)
     end
