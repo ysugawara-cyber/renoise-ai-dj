@@ -106,9 +106,8 @@ local function ensure_scenes(initialize_existing)
   local need = math.max(0, #SCENES - #pat_seq)
   for _ = 1, need do
     local slot = #seq.pattern_sequence + 1
-    seq:insert_new_pattern_at(slot)
-    local pattern_number = seq.pattern_sequence[slot]
-    local pat = song:pattern(pattern_number + 1)
+    local new_pattern_index = seq:insert_new_pattern_at(slot)
+    local pat = song:pattern(new_pattern_index)
     if pat and pat.number_of_lines ~= PATTERN_LINES then
       pcall(function() pat.number_of_lines = PATTERN_LINES end)
     end
