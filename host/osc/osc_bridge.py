@@ -4,14 +4,15 @@ osc_bridge.py -- opencode <-> Renoise broker.
 
 Responsibilities:
   1. Watch host/osc/outbox/ for JSON files produced by opencode TUIs.
-     Each file encodes one OSC message. Send to Renoise Tool (127.0.0.1:8080)
+     Each file encodes one OSC message. Send to Renoise Tool (host/port detected
+     or configured with AIDJ_RENOISE_HOST/AIDJ_RENOISE_PORT)
      and move to host/osc/sent/.
-  2. Listen on 127.0.0.1:8088 for /ai/status broadcasts from Renoise.
+  2. Listen on AIDJ_STATUS_BIND_HOST:AIDJ_STATUS_PORT for /ai/status broadcasts.
      Update host/state/session.json (BPM, scene, play state, per-track mixer).
 3. Maintain a process-wide file lock over session.json to arbitrate writes
       from multiple opencode TUIs.
-  4. Listen to MIDImix macro knobs (CC 10..17) and resolve them via
-      config/macros.yaml into /ai/fx/param (or /ai/bpm, /ai/swing).
+  4. Expand named macros from config/macros.yaml. Hardware MIDI input is
+     handled only by the Renoise Lua Tool.
 
 Run (from repo root, inside the WSL venv):
     host/.venv/bin/python host/osc/osc_bridge.py
@@ -23,30 +24,26 @@ import os
 import shutil
 import subprocess
 import time
-import uuid
 import threading
 import fcntl
 from pathlib import Path
 from typing import Any
 
+from message_queue import MessageValidationError, atomic_write_json, validate_message
+
 try:
     from pythonosc.udp_client import SimpleUDPClient
     from pythonosc.dispatcher import Dispatcher
-    from pythonosc.osc_server import ThreadingOSCUDPServer
+    from pythonosc.osc_server import BlockingOSCUDPServer
 except ImportError as e:  # pragma: no cover
     raise SystemExit(
-        "missing deps: pip install python-osc pyyaml mido python-rtmidi"
+        "missing dependency: pip install -r requirements.txt"
     ) from e
 
 try:
     import yaml
 except ImportError:  # pragma: no cover
     yaml = None
-
-try:
-    import mido
-except ImportError:  # pragma: no cover
-    mido = None
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTBOX = ROOT / "host/osc/outbox"
@@ -55,8 +52,12 @@ STATE = ROOT / "host/state/session.json"
 LOCK = ROOT / "host/state/session.lock"
 MACROS_YAML = ROOT / "config/macros.yaml"
 WSL_IP_FILE = ROOT / "host/state/wsl_ip.txt"
-RENOISE_DATA = Path("/mnt/c/Users/y_sugawara/AppData/Roaming/Renoise")
 TOOL_DIR: Path | None = None
+WSL_IP = "127.0.0.1"
+RENOISE_HOST = "127.0.0.1"
+RENOISE_PORT = int(os.environ.get("AIDJ_RENOISE_PORT", "8080"))
+BRIDGE_LISTEN_PORT = int(os.environ.get("AIDJ_STATUS_PORT", "8088"))
+STATUS_BIND_HOST = "127.0.0.1"
 
 
 def _detect_wsl_ip() -> str:
@@ -85,32 +86,74 @@ def _detect_windows_host_ip() -> str:
     return "127.0.0.1"
 
 
+def _candidate_renoise_data_dirs() -> list[Path]:
+    configured = os.environ.get("AIDJ_RENOISE_DATA_DIR")
+    if configured:
+        return [Path(configured).expanduser()]
+    users_root = Path("/mnt/c/Users")
+    if not users_root.is_dir():
+        return []
+    return sorted(users_root.glob("*/AppData/Roaming/Renoise"))
+
+
 def _detect_tool_dir() -> Path | None:
     """Find the installed AIDJ tool directory under Renoise AppData."""
-    if not RENOISE_DATA.is_dir():
-        return None
-    for p in RENOISE_DATA.iterdir():
-        if p.is_dir():
-            candidate = p / "Scripts/Tools/com.aidj.live.xrnx"
+    configured = os.environ.get("AIDJ_RENOISE_TOOL_DIR")
+    if configured:
+        candidate = Path(configured).expanduser()
+        return candidate if candidate.is_dir() else None
+    candidates: list[Path] = []
+    for data_dir in _candidate_renoise_data_dirs():
+        for version_dir in data_dir.iterdir() if data_dir.is_dir() else []:
+            candidate = version_dir / "Scripts/Tools/com.aidj.live.xrnx"
             if candidate.is_dir():
-                return candidate
+                candidates.append(candidate)
+    owners = {candidate.parents[5] for candidate in candidates}
+    if len(owners) > 1:
+        print("warning: multiple Windows Renoise users found; set AIDJ_RENOISE_TOOL_DIR")
+        return None
+    if candidates:
+        def version_key(candidate: Path) -> tuple[int, ...]:
+            version = candidate.parents[2].name.removeprefix("V")
+            try:
+                return tuple(int(part) for part in version.split("."))
+            except ValueError:
+                return (0,)
+        return max(candidates, key=version_key)
     return None
 
 
-WSL_IP = _detect_wsl_ip()
-RENOISE_HOST = _detect_windows_host_ip()
-TOOL_DIR = _detect_tool_dir()
-RENOISE_PORT = 8080
-BRIDGE_LISTEN_PORT = 8088
+def _resolve_renoise_bind_host(tool_dir: Path) -> str:
+    bind_file = tool_dir / "osc_bind_host.txt"
+    configured = os.environ.get("AIDJ_RENOISE_OSC_BIND_HOST")
+    if configured is not None:
+        return configured
+    return bind_file.read_text().strip() if bind_file.exists() else "127.0.0.1"
 
-OUTBOX.mkdir(parents=True, exist_ok=True)
-SENT.mkdir(parents=True, exist_ok=True)
-STATE.parent.mkdir(parents=True, exist_ok=True)
-LOCK.touch(exist_ok=True)
-WSL_IP_FILE.write_text(WSL_IP)
-if TOOL_DIR:
-    (TOOL_DIR / "wsl_ip.txt").write_text(WSL_IP)
-    print("wrote wsl_ip.txt to tool dir: " + str(TOOL_DIR))
+
+def _initialize_environment() -> None:
+    global WSL_IP, RENOISE_HOST, TOOL_DIR, STATUS_BIND_HOST
+    WSL_IP = os.environ.get("AIDJ_WSL_IP", _detect_wsl_ip())
+    RENOISE_HOST = os.environ.get("AIDJ_RENOISE_HOST", _detect_windows_host_ip())
+    STATUS_BIND_HOST = os.environ.get(
+        "AIDJ_STATUS_BIND_HOST", WSL_IP if WSL_IP != "127.0.0.1" else "127.0.0.1"
+    )
+    TOOL_DIR = _detect_tool_dir()
+    OUTBOX.mkdir(parents=True, exist_ok=True)
+    SENT.mkdir(parents=True, exist_ok=True)
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    LOCK.touch(exist_ok=True)
+    WSL_IP_FILE.write_text(WSL_IP)
+    if TOOL_DIR:
+        (TOOL_DIR / "wsl_ip.txt").write_text(WSL_IP)
+        bind_file = TOOL_DIR / "osc_bind_host.txt"
+        bind_host = _resolve_renoise_bind_host(TOOL_DIR)
+        if bind_host not in ("127.0.0.1", "0.0.0.0"):
+            raise SystemExit("AIDJ_RENOISE_OSC_BIND_HOST must be 127.0.0.1 or 0.0.0.0")
+        bind_file.write_text(bind_host)
+        print("wrote bridge config to tool dir: " + str(TOOL_DIR))
+    else:
+        print("warning: Renoise tool directory not found; set AIDJ_RENOISE_TOOL_DIR")
 
 
 def _load_macros() -> dict[str, dict]:
@@ -129,9 +172,7 @@ def _load_macros() -> dict[str, dict]:
     return out
 
 
-MACROS = _load_macros()
-CC_TO_MACRO = {int(m["cc"]): name for name, m in MACROS.items() if m.get("cc") is not None}
-MIDIMIX_NAME_HINTS = ("midi mix", "midimix")
+MACROS: dict[str, dict] = {}
 
 
 def _expand_macro(macro_name: str, value: int) -> list[tuple[str, list[Any]]]:
@@ -149,6 +190,8 @@ def _expand_macro(macro_name: str, value: int) -> list[tuple[str, list[Any]]]:
     target = macro.get("target")
     if target:
         track = str(target.get("track"))
+        if target.get("param") == "volume":
+            return [("/ai/mixer/volume", [track, int(value)])]
         fx_index = int(target.get("fx_index", 0))
         param_index = int(target.get("param_index", 0))
         return [("/ai/fx/param", [track, fx_index, param_index, int(value)])]
@@ -167,6 +210,17 @@ def _expand_macro(macro_name: str, value: int) -> list[tuple[str, list[Any]]]:
     return []
 
 
+def _messages_for_dispatch(message: dict[str, Any]) -> list[tuple[str, list[Any]]]:
+    path = message["path"]
+    args = message["args"]
+    if path != "/ai/fx/macro":
+        return [(path, args)]
+    expansions = _expand_macro(str(args[0]), args[1])
+    if not expansions:
+        raise ValueError(f"unknown or invalid macro: {args[0]}")
+    return expansions
+
+
 def _load_state() -> dict[str, Any]:
     try:
         with open(LOCK, "r+") as lf:
@@ -181,54 +235,118 @@ def _load_state() -> dict[str, Any]:
 
 
 def _save_state(state: dict[str, Any]) -> None:
+    # tmp へ書いてから os.replace でアトミックに差し替える。
+    # (bridge 死亡や OneDrive 競合時に 0 バイトの session.json が残るのを防ぐ)
+    payload = json.dumps(state, indent=2)
     with open(LOCK, "r+") as lf:
         fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-        STATE.write_text(json.dumps(state, indent=2))
+        atomic_write_json(STATE, state)
         fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+
+def _merge_status_into_state(latest: dict[str, Any]) -> None:
+    """Read, merge bridge-owned fields, and save under one exclusive lock."""
+    with open(LOCK, "r+") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            try:
+                state = json.loads(STATE.read_text()) if STATE.exists() and STATE.stat().st_size else {}
+            except (OSError, json.JSONDecodeError):
+                state = {}
+            state["bpm"] = latest["bpm"]
+            state["active_scene"] = latest["active_scene"]
+            state["play_state"] = latest["play_state"]
+            for track_index, context in enumerate(latest.get("tracks") or [], start=1):
+                track = state.setdefault("tracks", {}).setdefault(str(track_index), {})
+                track["volume"] = float(context.get("v", 1.0)) / 1.41253
+                track["mute"] = bool(context.get("m", 0))
+                track["solo"] = bool(context.get("s", 0))
+                if "in" in context:
+                    track["instrument"] = str(context["in"])
+                    track["instrument_index"] = int(context.get("ii", -1))
+                    track["instrument_resolved"] = bool(context.get("io", 0))
+            state["renoise_heartbeat"] = latest["renoise_heartbeat"]
+            atomic_write_json(STATE, state)
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+# /ai/status の受信ハンドラはファイル I/O を行わずメモリ上の最新値を更新するだけ。
+# OneDrive 上の flock/ファイル書込が遅く、ThreadingOSCUDPServer の
+# パケット毎スレッド生成と組み合わさるとハンドラが詰まってスレッドが無限蓄積し
+# "can't start new thread" で bridge が死亡する(実故障 2026-07-18)。
+_latest_status: dict[str, Any] = {}
+_status_lock = threading.Lock()
+_status_dirty = False
 
 
 def _update_state_from_status(args: list[Any]) -> None:
     # args: [i bpm_x10, i active_scene, i play_state, s json_tracks]
+    global _status_dirty
     if len(args) < 4:
         return
     bpm_x10, scene, play, tracks_json = args[:4]
-    state = _load_state()
-    state["bpm"] = round(int(bpm_x10) / 10.0, 1)
-    state["active_scene"] = int(scene)
-    state["play_state"] = "playing" if int(play) == 1 else "stopped"
     try:
+        bpm = round(int(bpm_x10) / 10.0, 1)
+        active_scene = int(scene)
+        play_state = int(play)
         tracks = json.loads(tracks_json) if isinstance(tracks_json, str) else tracks_json
-        for ti, ctx in enumerate(tracks, start=1):
-            tk = state.setdefault("tracks", {}).setdefault(str(ti), {})
-            tk["volume"] = float(ctx.get("v", 1.0)) / 1.415
-            tk["mute"] = bool(ctx.get("m", 0))
-            tk["solo"] = bool(ctx.get("s", 0))
-    except Exception as e:
-        print("status parse err:", e)
-    state["renoise_heartbeat"] = int(time.time())
-    _save_state(state)
+        if not isinstance(tracks, list) or any(not isinstance(track, dict) for track in tracks):
+            raise ValueError("tracks must be a list of objects")
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        print("status validation err:", exc)
+        return
+    with _status_lock:
+        _latest_status["bpm"] = bpm
+        _latest_status["active_scene"] = active_scene
+        _latest_status["play_state"] = "playing" if play_state == 1 else "stopped"
+        _latest_status["tracks"] = tracks
+        _latest_status["renoise_heartbeat"] = int(time.time())
+        _status_dirty = True
+
+
+def _start_state_writer() -> threading.Thread:
+    """0.5 s 間隔で _latest_status を session.json に反映する単一ライター。
+
+    locked_rows / tui_instances などエージェント編集フィールドを保持するため
+    既存 state をロードしてからマージする。
+    """
+    def loop():
+        global _status_dirty
+        while True:
+            time.sleep(0.5)
+            with _status_lock:
+                if not _status_dirty:
+                    continue
+                latest = dict(_latest_status)
+                _status_dirty = False
+            try:
+                _merge_status_into_state(latest)
+            except Exception as e:
+                print("state writer err:", e)
+    t = threading.Thread(target=loop, daemon=True, name="state-writer")
+    t.start()
+    return t
 
 
 def _start_outbox_consumer(client: SimpleUDPClient) -> threading.Thread:
     def loop():
         while True:
-            files = sorted(p for p in OUTBOX.glob("*.json"))
+            try:
+                files = sorted(p for p in OUTBOX.glob("*.json"))
+            except Exception as e:
+                # OneDrive 同期ロック等で glob が一時的に失敗しても
+                # consumer スレッドを死なせない
+                print("outbox glob err:", e)
+                files = []
             for p in files:
                 try:
-                    msg = json.loads(p.read_text())
-                    path = msg["path"]
-                    args = msg["args"]
-                    if path == "/ai/fx/macro" and len(args) >= 2:
-                        expansions = _expand_macro(str(args[0]), args[1])
-                        for ep, ea in expansions:
-                            client.send_message(ep, ea)
-                            print(f"-> {ep} {ea} (macro {args[0]})")
-                        shutil.move(str(p), str(SENT / p.name))
-                        continue
-                    client.send_message(path, args)
+                    msg = validate_message(json.loads(p.read_text()))
+                    for dispatch_path, dispatch_args in _messages_for_dispatch(msg):
+                        client.send_message(dispatch_path, dispatch_args)
+                        print(f"-> {dispatch_path} {dispatch_args}")
                     shutil.move(str(p), str(SENT / p.name))
-                    print(f"-> {path} {args}")
-                except Exception as e:
+                except (OSError, json.JSONDecodeError, MessageValidationError, KeyError, ValueError) as e:
                     print("outbox send err:", p.name, e)
                     try:
                         err = p.with_suffix(".err")
@@ -241,88 +359,31 @@ def _start_outbox_consumer(client: SimpleUDPClient) -> threading.Thread:
     return t
 
 
-def _start_status_server() -> ThreadingOSCUDPServer:
+def _start_status_server() -> "BlockingOSCUDPServer":
+    # 単一スレッドの BlockingOSCUDPServer を使う。ThreadingOSCUDPServer は
+    # 10 Hz の status パケット毎にスレッドを生成し、ハンドラが詰まると
+    # スレッド枯渇で bridge ごと死亡するため。
     dispatcher = Dispatcher()
     dispatcher.map("/ai/status", lambda path, *args: _update_state_from_status(list(args)))
     dispatcher.set_default_handler(lambda path, args: print(f"[debug] unknown OSC: {path} {args}"))
-    srv = ThreadingOSCUDPServer(("0.0.0.0", BRIDGE_LISTEN_PORT), dispatcher)
+    srv = BlockingOSCUDPServer((STATUS_BIND_HOST, BRIDGE_LISTEN_PORT), dispatcher)
     threading.Thread(target=srv.serve_forever, daemon=True, name="osc-status").start()
-    print(f"osc_bridge listening /ai/status on 0.0.0.0:{BRIDGE_LISTEN_PORT}")
+    print(f"osc_bridge listening /ai/status on {STATUS_BIND_HOST}:{BRIDGE_LISTEN_PORT}")
     return srv
 
 
-def _find_midimix_port() -> str | None:
-    if mido is None:
-        return None
-    try:
-        names = mido.get_input_names()
-    except Exception as e:
-        print("mido input enum err:", e)
-        return None
-    for n in names:
-        ln = n.lower()
-        if any(h in ln for h in MIDIMIX_NAME_HINTS):
-            return n
-    return None
-
-
-def _start_midi_macro_listener(client: SimpleUDPClient):
-    """Listen to MIDImix macro knobs (CC 10..17, ch 1) and fire /ai/fx/macro.
-
-    CC value 0..127 is rescaled to int 0..1000 (the documented convention),
-    then resolved via _expand_macro and sent directly to Renoise. Writes a
-    record JSON into host/osc/sent/ for audit.
-    """
-    if mido is None:
-        print("mido not available; macro knob auto-fire disabled (pip install mido python-rtmidi)")
-        return None
-    port_name = _find_midimix_port()
-    if not port_name:
-        print("MIDImix input not found; macro knob auto-fire disabled")
-        return None
-    try:
-        inport = mido.open_input(port_name)
-    except Exception as e:
-        print("mido open_input err:", e)
-        return None
-    print(f"midi macro listener on '{port_name}' (CC 10..17 -> /ai/fx/macro)")
-
-    def loop():
-        for msg in inport:
-            try:
-                if msg.type != "control_change" or msg.channel != 0:
-                    continue
-                cc = int(msg.control)
-                if cc < 10 or cc > 17:
-                    continue
-                macro_name = CC_TO_MACRO.get(cc)
-                if not macro_name:
-                    continue
-                value = int(round(msg.value * 1000 / 127))
-                expansions = _expand_macro(macro_name, value)
-                for ep, ea in expansions:
-                    client.send_message(ep, ea)
-                    print(f"-> {ep} {ea} (macro {macro_name} cc{cc}={msg.value})")
-                rec = {
-                    "id": uuid.uuid4().hex,
-                    "ts": int(time.time() * 1000),
-                    "tui_id": "midi",
-                    "path": "/ai/fx/macro",
-                    "args": [macro_name, value],
-                }
-                (SENT / f"{rec['ts']}_{rec['id'][:8]}.json").write_text(json.dumps(rec))
-            except Exception as e:
-                print("midi macro err:", e)
-    t = threading.Thread(target=loop, daemon=True, name="midi-macro")
-    t.start()
-    return t
-
-
 def main() -> None:
+    global MACROS
+    _initialize_environment()
+    MACROS = _load_macros()
+    # 空/欠損の session.json を初期化(前回の異常終了で 0 バイト化した場合等)
+    if not STATE.exists() or STATE.stat().st_size == 0:
+        _save_state({})
     renoise_client = SimpleUDPClient(RENOISE_HOST, RENOISE_PORT)
     _start_outbox_consumer(renoise_client)
     _start_status_server()
-    _start_midi_macro_listener(renoise_client)
+    _start_state_writer()
+    print("host MIDI disabled (Renoise Lua MIDI router is authoritative)")
     print(f"osc_bridge started")
     print(f"  WSL IP:  {WSL_IP}  (Renoise -> {WSL_IP}:{BRIDGE_LISTEN_PORT})")
     print(f"  Windows: {RENOISE_HOST}  (bridge -> {RENOISE_HOST}:{RENOISE_PORT})")

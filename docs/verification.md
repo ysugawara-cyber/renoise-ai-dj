@@ -21,8 +21,8 @@ host/.venv/bin/python host/osc/verify_roundtrip.py
 - `/ai/mixer/mute "1" 1` → `tracks.1.mute == true`
 - `/ai/mixer/solo "1" 1` → `tracks.1.solo == true`
 - `/ai/mixer/volume "1" 500` → `tracks.1.volume` が 0.49..0.51
-  （`pattern_writer.lua` が `v/1000 * 1.415` で postfx_volume を設定→
-  `status_publisher` が生値をブロードキャスト→`osc_bridge.py` が `/1.415` で正規化→
+  （`pattern_writer.lua` が `v/1000 * 1.41253` で postfx_volume を設定→
+  `status_publisher` が生値をブロードキャスト→`osc_bridge.py` が `/1.41253` で正規化→
   net `500/1000 = 0.5`）
 
 全 4 / 4 で PASS なら ok。1 つでも FAIL の場合は該当 OSC handler の
@@ -71,39 +71,51 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 
 ## 3. APC mini mk2 検証（V4 / V5 前半）
 
-### 3.1 Pad row 0 (Note 56..63) → scene launch
-- Renoise の Pattern Sequence slot 1..8 を押す。
-- LED が緑点灯する（`tools/AIDJ/midi_router.lua:23` で feedback_apc(note, 1)）。
+### 3.1 Hybrid pad grid
+- Step modeでpadを押すと、選択Track/64-line bankの対応noteがtoggleされLEDが緑になる。
+- SHIFT+最上段でTrack 1..8、SHIFT+2段目左4padでbank 1..4を選ぶ。
+- 再生中にFADER CTRL 8でPerform modeへ切替し、各columnがTrack 1..8のone-shotになる。
+  note column 2以降へ一時書込され、通過後に自動消去されることを確認する。
+- SHIFT+FADER CTRL 8を3秒以内に2回押すと、選択bankのnote column 1だけをclearする。
+  1回目では警告だけになり、effect/他note columnを保持することを確認する。
 
-### 3.2 Sliders (CC 48..55) → Track volume
-- Slider 1 を動かす → Track 1 の postfx_volume が 0..1.415 で変化。
+### 3.2 Scene / sliders
+- 右側Sceneボタンは通常Scene 1..8、SHIFT併用でScene 9..16。
+- Slider 1 を動かす → Track 1 の postfx_volume が 0..1.41253 で変化。
+- Slider 9 (CC56)を動かす → Master volumeが変化。
 - `tools/AIDJ/midi_router.lua:29` が int×1000 に正規化済み、`pattern_writer.set_volume`
   が `/1000` 復元するため、可聴範囲全域が効くはず。
 
-### 3.3 Transport buttons（V5 未確定項目）
-- `host/midi_maps/AIDJ_APC_MIDImix.xml:65-69` の Note 91/92 は placeholder。
-- Renoise MIDI Mapping パネルの "Learn" ボタンを使って実際の Note 番号を取得し、
-  XML を更新する。
+### 3.3 Transport buttons
+- FADER CTRL 左 2 つ (Note 100 / 101) → Play / Stop。
+- Note 102..107 → Loop / Previous Scene / Next Scene / Previous Bank / Next Bank / Mode。
+  `tools/AIDJ/midi_router.lua` の `handle_apc` が直接処理する
+  (Renoise MIDI Mapping XML は廃止済み。旧 `host/midi_maps/AIDJ_APC_MIDImix.xml` は
+  誤ったマッピングを含んでいたため削除)。
 - LED の色（velocity palette）も実機で確認し、必要なら
-  `tools/AIDJ/midi_router.lua:23` の `color_mode` 引数を調整。
+  `tools/AIDJ/midi_router.lua` の LED 送信箇所を調整。
 
 ## 4. AKAI MIDImix 検証（V4 / T2-b）
 
-### 4.1 MUTE / SOLO ボタン（Note 1..8 / 16..23）
-- MUTE button 1 を押す → Track 1 mute toggle。
-- SOLO button 1 を押す → Track 1 solo toggle。
+### 4.1 MUTE / SOLO ボタン（MUTE: Note 1,4,7,…,22 / SOLO: Note 3,6,9,…,24）
+- MUTE button 1 (Note 1) を押す → Track 1 mute toggle。
+- SOLO button 1 (Note 3) を押す → Track 1 solo toggle。
+- mute時はMUTE LED、solo時はREC/ARM LEDが点灯し、Renoise GUIやTUIからの変更にも追従する。
+- 割当の詳細は `.opencode/rules/midi_mapping.md` と
+  `tools/AIDJ/midi_router.lua` の `handle_mix` を参照。
 
-### 4.2 Macro knobs CC 10..17 → `/ai/fx/macro` 自動発火（T2-b）
-- `osc_bridge.py` の起動ログに `midi macro listener on 'MIDI Mix' ...` が出るはず。
-  `mido not available` / `MIDImix input not found` の場合は knob 自動発火不可。
-- Knob 1 (CC 10, bpm_coarse) を回すと bridge ログに
-  `-> /ai/bpm <X> (macro bpm_coarse cc10=Y)` が出るはず。
-- Knob 2 (CC 11, swing) を回すと `-> /ai/swing <X>` が出るはず。
-- Knob 4 (CC 13, send_reverb) を回すと `-> /ai/fx/param [track "7", 0, 0, <X>]` が出るはず。
+### 4.2 Knobs (Renoise Lua直接処理)
+- 上段`16,20,24,28,46,50,54,58` → Track 1..8 Pan。
+- 中段`17,21,25,29,47,51,55,59` → Track 1..8 CUE Level。
+- 下段`18,22,26,30,48,52,56,60` → BPM / Swing / Master Pan / Reverb /
+  Delay / Master Filter / Distortion / Bitcrush。
+- CUEとFXは現在のXRNS device構成と照合して手動確認する。
+- bridge側MIDI listenerは標準で無効。WSLからUSB MIDIへアクセスしない。
 
-### 4.3 Master fader (CC 7)
-- Renoise MIDI Map で Master Track Volume に bind 済み（XML に記載）。
-- 動作確認は Renoise の Master fader の動きで視認。
+### 4.3 Faders
+- Track 1-8: CC `19,23,27,31,49,53,57,61` → Track Volume。
+- Master: CC `62` → Master Volume。
+- Renoise MIDI Mapping XMLは使用しない。
 
 ## 5. テンプレート XRNS 作成手順（C.6）
 
@@ -111,15 +123,12 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 - File -> New（空の Song、初期 Pattern 1 つ + Master Track のみ想定）。
 
 ### 5.2 Track skeleton ヘルパを実行
-- Tools -> Show Script Editor & Run で
-  `tools/AIDJ/setup/build_track_skeleton.lua` を開いて実行、または
-  Development Tools の Lua Console で:
-  ```lua
-  dofile(renoise.tool().bundle_path .. "/setup/build_track_skeleton.lua")
-  ```
+- `Tools -> AIDJ -> Setup -> Build or Extend 16-Scene Skeleton`を実行する。
+- Scripting TerminalはToolと別sandboxで`renoise.tool()`が存在しないため、Terminalから
+  `dofile(renoise.tool().bundle_path ...)`を実行しない。
 - ステータスバーに "AIDJ skeleton built." と表示される。
 - 8 sequencer track (drums / breaks / bass / lead / pads / stabs / fx / vox) +
-  5 つの 256-line Pattern が生成される。
+  16 個の256-line Patternが生成される。
 
 ### 5.3 CUE bus + #Send + FX 一括セットアップ（Lua Console）
 
@@ -142,13 +151,17 @@ print("CUE bus at track", master_idx + 1)
 **b) #Send + FX デバイス一括挿入**:
 ```lua
 local song = renoise.song()
+local master_idx
+for i, tr in ipairs(song.tracks) do
+  if tr.type == renoise.Track.TRACK_TYPE_MASTER then master_idx = i end
+end
 local SEND = "Audio/Effects/Native/#Send"
 local FX = {
   [1] = {"Audio/Effects/Native/Compressor", "Audio/Effects/Native/Reverb"},
   [2] = {"Audio/Effects/Native/Distortion 2", "Audio/Effects/Native/Delay"},
   [3] = {"Audio/Effects/Native/Digital Filter"},
   [5] = {"Audio/Effects/Native/Reverb"},
-  [7] = {"Audio/Effects/Native/Cabinet Simulator"},
+  [7] = {"Audio/Effects/Native/Reverb", "Audio/Effects/Native/Delay", "Audio/Effects/Native/Cabinet Simulator"},
 }
 for ti = 1, 8 do
   local tr = song:track(ti)
@@ -159,6 +172,8 @@ for ti = 1, 8 do
     end
   end
 end
+local master = song:track(master_idx)
+master:insert_device_at("Audio/Effects/Native/Digital Filter", #master.devices + 1)
 print("FX + #Send inserted")
 ```
 
@@ -176,14 +191,15 @@ print("#Send -> CUE, Amount=0.8")
 ### 5.4 手動で残す作業
 1. 各トラックに楽器(Sampler または VSTi)を挿入し、サンプル/プリセットを割当。
    楽器命名は `music_constraints.md` の `KCK01` / `SNR01` / `BAS_reese01` 等に従う。
-2. Pattern Sequence の slot 1..5 に 5 つの Pattern が対応済み
-   （skeleton が slot 追加済み、必要なら slot 順をドラッグで調整）。
+2. Pattern Sequence のslot 1..16に16個のPatternが対応済み
+   （skeletonがslot追加済み、必要ならslot順をドラッグで調整）。
 3. File -> Save As で `AIDJ-TEMPLATE.<date>.xrns` として保存。
    `~/.renoise/Templates/` に配置すれば Renoise の File -> New から選べる。
 
 ### 5.5 fx_mapping.yaml / macros.yaml の index 照合（A.2）
-- 手順 5.3 で挿入したデバイス順と `fx_mapping.yaml` の `fx_index`（0-based）、
+- 手順 5.3 で挿入したカスタムFXの順と `fx_mapping.yaml` の `fx_index`（0-based）、
   `macros.yaml` の `fx_index` / `param_index` を照合。
+- `fx_index: 0` は最初のカスタムFXを表す。TrackVolPanと先頭の`#Send`はruntimeが除外する。
 - Renoise Lua Console で以下を実行してインデックスを確認:
   ```lua
   for i, d in ipairs(renoise.song():track(7).devices) do
@@ -193,12 +209,13 @@ print("#Send -> CUE, Amount=0.8")
     end
   end
   ```
-  表示される 1-based index を `fx_index` は -1 して YAML に書く。
+  `param_index`は表示されたparameter番号から1を引く。`fx_index`はカスタムFX内の順番で、
+  最初を0とする（GUI全体のdevice番号から単純に1を引かない）。
 
 ## 6. 検証失敗時の問い合わせ先
 
 - OSC 系（手順 1, 2）→ `osc_protocol.lua` / `osc_server.lua` /
   `pattern_writer.lua` / `osc_bridge.py`
-- MIDI 系（手順 3, 4）→ `midi_router.lua` / `osc_bridge._start_midi_macro_listener`
+- MIDI 系（手順 3, 4）→ `midi_router.lua`
 - 検証スクリプト自体 → `host/osc/verify_roundtrip.py`
 - テンプレート作成（手順 5）→ `tools/AIDJ/setup/build_track_skeleton.lua`

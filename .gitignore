@@ -4,9 +4,11 @@
 *.swp
 *.swo
 
-# opencode config (local only)
-.opencode/
-AGENTS.md
+# opencode local dependencies and personal config
+.opencode/node_modules/
+.opencode/package.json
+.opencode/package-lock.json
+.opencode/bun.lock
 opencode.json
 
 # Python
@@ -22,6 +24,8 @@ __pycache__/
 host/state/session.json
 host/state/session.lock
 host/state/wsl_ip.txt
+host/state/bridge.pid
+host/state/directives/
 host/osc/sent/*
 host/osc/outbox/*
 
@@ -31,5 +35,4 @@ tools/AIDJ/logs/*
 
 # generated content
 tools/AIDJ/generated/*
-tools/AIDJ/AIDJ-TEMPLATE.xrs.xrns
 *.xrns

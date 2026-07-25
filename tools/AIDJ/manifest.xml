@@ -7,6 +7,5 @@
   <Author>AIDJ Live System</Author>
   <Description>OSC-driven live coding bridge for AI DJ performance.</Description>
   <Category>Live Performance</Category>
-  <Homepage>https://github.com/anomalyco/opencode</Homepage>
-  <Icon>logo.png</Icon>
+  <Homepage>https://github.com/ysugawara-cyber/renoise-ai-dj</Homepage>
 </RenoiseScriptingTool>

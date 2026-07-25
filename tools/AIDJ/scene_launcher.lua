@@ -18,11 +18,19 @@ function M.launch(scene_index)
     return false
   end
   local t = renoise.song().transport
-  -- set the playback position; Renoise's transport.playback_pos is a SongPos.
-  local pos = t.playback_pos
-  pos.sequence = slot
-  pos.line = 1
-  t.playback_pos = pos
+  if t.playing then
+    local pos = t.playback_pos
+    pos.sequence = slot
+    pos.line = 1
+    t.playback_pos = pos
+  else
+    -- 停止中は playback_pos への書込が Renoise に無視されるため edit_pos を動かす。
+    -- 次回の Play はカーソル位置 (edit_pos) から始まる。
+    local pos = t.edit_pos
+    pos.sequence = slot
+    pos.line = 1
+    t.edit_pos = pos
+  end
   return true
 end
 

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "dj_live_pads",
+  "instructions": [
+    "AGENTS.md",
+    ".opencode/rules/music_constraints.md",
+    ".opencode/rules/osc_protocol.md",
+    ".opencode/rules/midi_mapping.md"
+  ],
+  "permission": {
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "bash": "ask",
+    "edit": "ask"
+  },
+  "watcher": {
+    "ignore": [
+      "host/state/**",
+      "host/osc/outbox/**",
+      "host/osc/sent/**",
+      "tools/AIDJ/generated/**",
+      "*.xrns",
+      "*.tmp"
+    ]
+  },
+  "snapshot": true,
+  "share": "disabled",
+  "autoupdate": "notify"
+}

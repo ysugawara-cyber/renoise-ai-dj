@@ -5,12 +5,12 @@
 --
 -- 生成するもの:
 --   1) 8 つの Sequencer Track(drums / breaks / bass / lead / pads / stabs / fx / vox)
---   2) 5 つの Pattern + Pattern Sequence slot(scenes.yaml と対応)
+--   2) 16 個の Pattern + Pattern Sequence slot(scenes.yaml と対応)
 --   3) 各 Pattern の行数を 256 (16 steps x 16 lines) に設定
 --
 -- 手動で残す作業:
 --   - 楽器 / サンプルを各トラックに割当
---   - CUE bus(Send Track) を 9 番に追加し、各トラックの #Send デバイスでルーティング
+--   - CUE bus(Send Track) を Master 後(通常 track 10)に追加し、各トラックをルーティング
 --   - FX デバイス(#Compressor / #Reverb / #Distortion 等)を fx_mapping.yaml の順に挿入
 --   - テンプレートを .xrns として File -> Save As で保存
 
@@ -31,6 +31,17 @@ local SCENES = {
   {name = "hardcore_kick_run",    pattern_lines = 256},
   {name = "breakdown_ambient",    pattern_lines = 256},
   {name = "outro_distorted",      pattern_lines = 256},
+  {name = "jungle_switch",        pattern_lines = 256},
+  {name = "gabber_pressure",      pattern_lines = 256},
+  {name = "vox_break",            pattern_lines = 256},
+  {name = "crossbreed_drive",     pattern_lines = 256},
+  {name = "amen_overload",        pattern_lines = 256},
+  {name = "industrial_halfstep",  pattern_lines = 256},
+  {name = "rave_stab_run",        pattern_lines = 256},
+  {name = "noise_transition",     pattern_lines = 256},
+  {name = "hardcore_peak",        pattern_lines = 256},
+  {name = "final_break",          pattern_lines = 256},
+  {name = "encore",               pattern_lines = 256},
 }
 
 local PATTERN_LINES = 256
@@ -47,6 +58,14 @@ local function count_seq_tracks()
     end
   end
   return n
+end
+
+local function is_blank_song()
+  local song = renoise.song()
+  local sequence = song.sequencer.pattern_sequence
+  if #sequence ~= 1 or count_seq_tracks() > 1 then return false end
+  local pattern_index = song.sequencer:pattern(1)
+  return pattern_index ~= nil and song:pattern(pattern_index).is_empty
 end
 
 local function ensure_tracks()
@@ -79,23 +98,33 @@ local function name_and_color_tracks()
   log("track names + colors set")
 end
 
-local function ensure_scenes()
+local function ensure_scenes(initialize_existing)
   local song = renoise.song()
   local seq = song.sequencer
   local pat_seq = seq.pattern_sequence
-  if #pat_seq >= #SCENES then
-    log("pattern_sequence has " .. #pat_seq .. " slots, skip")
-    return
-  end
-  local need = #SCENES - #pat_seq
+  local original_count = #pat_seq
+  local need = math.max(0, #SCENES - #pat_seq)
+  local inserted_patterns = {}
   for _ = 1, need do
-    local new_idx = seq:insert_new_pattern_at(#pat_seq + 1)
-    local pat = song:pattern(new_idx)
+    local slot = #seq.pattern_sequence + 1
+    local new_pattern_index = seq:insert_new_pattern_at(slot)
+    inserted_patterns[slot] = new_pattern_index
+    local pat = song:pattern(new_pattern_index)
     if pat and pat.number_of_lines ~= PATTERN_LINES then
       pcall(function() pat.number_of_lines = PATTERN_LINES end)
     end
   end
-  log("added " .. need .. " scenes (256-line patterns) to pattern_sequence")
+  pat_seq = seq.pattern_sequence
+  for slot = 1, math.min(#pat_seq, #SCENES) do
+    local pattern_index = inserted_patterns[slot] or seq:pattern(slot)
+    local pat = pattern_index and song:pattern(pattern_index) or nil
+    local recover_partial = slot > 5 and pat and pat.is_empty and (pat.name or "") == ""
+    if pat and (initialize_existing or slot > original_count or recover_partial) then
+      pcall(function() pat.number_of_lines = SCENES[slot].pattern_lines end)
+      pcall(function() pat.name = SCENES[slot].name end)
+    end
+  end
+  log("added " .. need .. " scenes; existing patterns preserved=" .. tostring(not initialize_existing))
 end
 
 local function main()
@@ -104,10 +133,11 @@ local function main()
     return
   end
   log("start")
+  local initialize_existing = is_blank_song()
   ensure_tracks()
-  name_and_color_tracks()
-  ensure_scenes()
-  log("done -- manual steps: instruments, CUE bus (#9), FX devices, save as .xrns")
+  if initialize_existing then name_and_color_tracks() end
+  ensure_scenes(initialize_existing)
+  log("done -- manual steps: instruments, CUE bus (normally #10), FX devices, save as .xrns")
   renoise.app():show_status(
     "AIDJ skeleton built. See log for manual steps (instruments, CUE bus, FX).")
 end

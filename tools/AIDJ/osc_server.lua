@@ -4,26 +4,92 @@
 -- accept custom /ai/* paths we run our own UDP listener via renoise.Socket.
 
 local M = {}
-local _server, _handlers = nil, {}
+local _server, _notifier, _handlers = nil, nil, {}
+local _receive_count, _last_path, _last_error = 0, "-", "-"
 local osc_protocol = require "osc_protocol"
+local SIGNATURES = {
+  ["/ai/transport"] = "s", ["/ai/bpm"] = "i", ["/ai/swing"] = "i",
+  ["/ai/scene"] = "i", ["/ai/pattern/write"] = "ssssis",
+  ["/ai/pattern/clear"] = "sii", ["/ai/pattern/lock"] = "ssi",
+  ["/ai/note"] = "ssii", ["/ai/mixer/volume"] = "si",
+  ["/ai/mixer/pan"] = "si", ["/ai/mixer/mute"] = "si",
+  ["/ai/mixer/solo"] = "si", ["/ai/mixer/cue"] = "si",
+  ["/ai/fx/param"] = "siii", ["/ai/fx/macro"] = "si",
+}
 
 local function register(path, fn)
   _handlers[path] = fn
 end
 
-function M.dispatch(path, args)
+local function validate_values(path, args)
+  if path == "/ai/bpm" and (args[1] < 120 or args[1] > 240) then
+    error("bpm out of range")
+  elseif path == "/ai/swing" and (args[1] < 0 or args[1] > 1000) then
+    error("swing out of range")
+  elseif path == "/ai/scene" and args[1] < 1 then
+    error("scene out of range")
+  elseif path == "/ai/transport" and
+         args[1] ~= "play" and args[1] ~= "stop" and
+         args[1] ~= "loop_on" and args[1] ~= "loop_off" then
+    error("invalid transport state")
+  end
+end
+
+function M.dispatch(path, args, types)
   local h = _handlers[path]
   if h then
-    h(args)
+    if types ~= SIGNATURES[path] then
+      error("invalid OSC signature for " .. path .. ": " .. tostring(types))
+    end
+    validate_values(path, args)
+    local result = h(args)
+    if result == false then error("handler rejected " .. path) end
+    return result
   else
-    renoise.app():show_warning("AIDJ: no handler for " .. tostring(path))
+    print("AIDJ: no handler for " .. tostring(path))
   end
+end
+
+function M.status()
+  return {
+    running = _server ~= nil and _server.is_running,
+    address = _server and _server.local_address or "-",
+    port = _server and _server.local_port or 0,
+    received = _receive_count,
+    last_path = _last_path,
+    last_error = _last_error,
+  }
+end
+
+function M.self_test()
+  if not _server or not _server.is_running then return nil, "OSC server is not running" end
+  if not _handlers["/ai/bpm"] then return nil, "session is not started" end
+  local ok, err = pcall(M.dispatch, "/ai/bpm", {174}, "i")
+  if not ok then return nil, tostring(err) end
+  return true
+end
+
+function M.loopback_test()
+  if not _server or not _server.is_running then return nil, "OSC server is not running" end
+  local client, err = renoise.Socket.create_client(
+    "127.0.0.1", _server.local_port, renoise.Socket.PROTOCOL_UDP)
+  if not client then return nil, tostring(err) end
+  local payload = osc_protocol.encode_message("/ai/bpm", "i", {175})
+  local sent, send_err = client:send(payload)
+  if not sent then
+    client:close()
+    return nil, tostring(send_err)
+  end
+  _server:wait(500)
+  client:close()
+  return true
 end
 
 function M.init(config, ctx)
   local pw = require "pattern_writer"
   local sl = require "scene_launcher"
   local cr = require "cue_router"
+  _receive_count, _last_path, _last_error = 0, "-", "-"
 
   register("/ai/transport", function(a)
     local state = a[1]
@@ -50,53 +116,68 @@ function M.init(config, ctx)
     t.groove_amounts = {v, v, v, v}
   end)
 
-  register("/ai/scene", function(a) sl.launch(a[1]) end)
+  register("/ai/scene", function(a) return sl.launch(a[1]) end)
 
   register("/ai/pattern/write", function(a)
-    pw.write_row(a[1], a[2], a[3], a[4], a[5], a[6])
+    return pw.write_row(a[1], a[2], a[3], a[4], a[5], a[6])
   end)
-  register("/ai/pattern/clear", function(a) pw.clear_range(a[1], a[2], a[3]) end)
-  register("/ai/pattern/lock",  function(a) pw.lock_row(a[1], a[2], a[3]) end)
+  register("/ai/pattern/clear", function(a) return pw.clear_range(a[1], a[2], a[3]) end)
+  register("/ai/pattern/lock",  function(a) return pw.lock_row(a[1], a[2], a[3]) end)
 
   register("/ai/note", function(a)
-    pw.one_shot(a[1], a[2], a[3], a[4])
+    return pw.one_shot(a[1], a[2], a[3], a[4])
   end)
 
-  register("/ai/mixer/volume", function(a) pw.set_volume(a[1], a[2]) end)
-  register("/ai/mixer/pan",    function(a) pw.set_pan(a[1], a[2]) end)
-  register("/ai/mixer/mute",   function(a) pw.set_mute(a[1], a[2]) end)
-  register("/ai/mixer/solo",   function(a) pw.set_solo(a[1], a[2]) end)
-  register("/ai/mixer/cue",    function(a) cr.set_cue(a[1], a[2]) end)
+  register("/ai/mixer/volume", function(a) return pw.set_volume(a[1], a[2]) end)
+  register("/ai/mixer/pan",    function(a) return pw.set_pan(a[1], a[2]) end)
+  register("/ai/mixer/mute",   function(a) return pw.set_mute(a[1], a[2]) end)
+  register("/ai/mixer/solo",   function(a) return pw.set_solo(a[1], a[2]) end)
+  register("/ai/mixer/cue",    function(a) return cr.set_cue(a[1], a[2]) end)
 
-  register("/ai/fx/param", function(a) pw.set_fx_param(a[1], a[2], a[3], a[4]) end)
-  register("/ai/fx/macro", function(a) pw.set_macro(a[1], a[2]) end)
+  register("/ai/fx/param", function(a) return pw.set_fx_param(a[1], a[2], a[3], a[4]) end)
+  register("/ai/fx/macro", function(a) return pw.set_macro(a[1], a[2]) end)
 
-  local server, err = renoise.Socket.create_server(
-    "0.0.0.0", config.osc_listen_port, renoise.Socket.PROTOCOL_UDP)
+  local server, err
+  if config.osc_listen_host == "0.0.0.0" then
+    server, err = renoise.Socket.create_server(
+      config.osc_listen_port, renoise.Socket.PROTOCOL_UDP)
+  else
+    server, err = renoise.Socket.create_server(
+      config.osc_listen_host, config.osc_listen_port, renoise.Socket.PROTOCOL_UDP)
+  end
   if not server then
     renoise.app():show_warning("AIDJ: failed to open OSC server on port " ..
-      config.osc_listen_port .. ": " .. tostring(err))
-    return
+      config.osc_listen_host .. ":" .. config.osc_listen_port .. ": " .. tostring(err))
+    return nil, tostring(err)
   end
 
-  server:run({
+  _notifier = {
     socket_message = function(socket, data)
+      _receive_count = _receive_count + 1
       local ok, path, types, args = pcall(osc_protocol.decode_message, data)
       if ok and path then
-        M.dispatch(path, args)
+        _last_path = path
+        local dispatched, dispatch_err = pcall(M.dispatch, path, args, types)
+        if not dispatched then
+          _last_error = tostring(dispatch_err)
+          print("AIDJ: OSC handler error " .. tostring(path) .. ": " .. tostring(dispatch_err))
+        end
       elseif not ok then
-        renoise.app():show_warning("AIDJ: osc decode err: " .. tostring(path))
+        _last_error = tostring(path)
+        print("AIDJ: OSC decode error: " .. tostring(path))
       end
     end,
     socket_error = function(error_message)
       renoise.app():show_warning("AIDJ: socket err: " .. tostring(error_message))
     end,
-  })
+  }
+  server:run(_notifier)
 
   _server = server
   ctx.osc_server = server
-  renoise.app():show_status("AIDJ OSC server listening on 127.0.0.1:" ..
-    config.osc_listen_port)
+  renoise.app():show_status("AIDJ OSC server listening on " ..
+    config.osc_listen_host .. ":" .. config.osc_listen_port)
+  return true
 end
 
 function M.deinit()
@@ -105,6 +186,7 @@ function M.deinit()
     _server:close()
     _server = nil
   end
+  _notifier = nil
 end
 
 return M

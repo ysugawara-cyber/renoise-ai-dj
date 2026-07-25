@@ -1,6 +1,8 @@
 # config/scenes.yaml
-# Declares the song's sequencer scene mapping.
+# Declares operator/OpenCode scene metadata. Lua runtime does not parse this file.
 # slot index in Renoise corresponds to scene id sent via /ai/scene.
+# duration_bars is the performance target; a 256-line pattern is 16 bars at LPB=4
+# and may loop to reach a 32-bar target.
 
 scenes:
   - id: 1
@@ -14,26 +16,103 @@ scenes:
     name: drop1_breakcore_full
     bpm: 180
     description: Full breakcore drop with reese bass, lead stab
-    tracks: [1, 2, 3, 4]
+    tracks: [1, 2, 3, 4, 7, 8]
     duration_bars: 32
 
   - id: 3
     name: hardcore_kick_run
     bpm: 210
     description: Pumping hardcore kick under sustained amen break
-    tracks: [1, 3, 4, 5]
+    tracks: [1, 3, 4, 5, 7]
     duration_bars: 32
 
   - id: 4
     name: breakdown_ambient
     bpm: 140
     description: Half-time breakdown; pads only, swapping recombinant breaks
-    tracks: [2, 5]
+    tracks: [2, 5, 7, 8]
     duration_bars: 32
 
   - id: 5
     name: outro_distorted
     bpm: 220
     description: Distorted gabber kick + fading breaks, exit
-    tracks: [1, 2, 3]
+    tracks: [1, 2, 3, 7, 8]
+    duration_bars: 32
+
+  - id: 6
+    name: jungle_switch
+    bpm: 176
+    description: Chopped jungle variation
+    tracks: [2, 3, 7, 8]
+    duration_bars: 32
+
+  - id: 7
+    name: gabber_pressure
+    bpm: 210
+    description: Dense gabber pressure section
+    tracks: [1, 3, 4, 7]
+    duration_bars: 32
+
+  - id: 8
+    name: vox_break
+    bpm: 174
+    description: Sparse vox-led break
+    tracks: [2, 5, 8]
+    duration_bars: 32
+
+  - id: 9
+    name: crossbreed_drive
+    bpm: 190
+    description: Crossbreed drive section
+    tracks: [1, 2, 3, 7]
+    duration_bars: 32
+
+  - id: 10
+    name: amen_overload
+    bpm: 180
+    description: Maximum amen edit density
+    tracks: [1, 2, 3, 7, 8]
+    duration_bars: 32
+
+  - id: 11
+    name: industrial_halfstep
+    bpm: 145
+    description: Industrial half-time bridge
+    tracks: [1, 2, 5, 7]
+    duration_bars: 32
+
+  - id: 12
+    name: rave_stab_run
+    bpm: 200
+    description: Rave stab and lead run
+    tracks: [1, 3, 4, 6, 8]
+    duration_bars: 32
+
+  - id: 13
+    name: noise_transition
+    bpm: 180
+    description: Noise and FX transition
+    tracks: [5, 7, 8]
+    duration_bars: 16
+
+  - id: 14
+    name: hardcore_peak
+    bpm: 220
+    description: Peak hardcore section
+    tracks: [1, 2, 3, 4, 7, 8]
+    duration_bars: 32
+
+  - id: 15
+    name: final_break
+    bpm: 174
+    description: Final decompression break
+    tracks: [2, 5, 7, 8]
+    duration_bars: 16
+
+  - id: 16
+    name: encore
+    bpm: 200
+    description: Encore full-stack scene
+    tracks: [1, 2, 3, 4, 5, 6, 7, 8]
     duration_bars: 32
