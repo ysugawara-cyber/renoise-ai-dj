@@ -38,10 +38,10 @@ local function current_pattern_track(track_n)
   if song:track(track_n).type ~= renoise.Track.TRACK_TYPE_SEQUENCER then return nil, nil, nil end
   local t = song.transport
   local seq = t.playing and t.playback_pos.sequence or t.edit_pos.sequence
-  local pat_idx = song.sequencer.pattern_sequence[seq]
-  if pat_idx == nil then return nil, nil, nil end
-  local pat = song:pattern(pat_idx + 1)
-  return pat, pat:track(track_n), pat_idx
+  local pattern_index = song.sequencer:pattern(seq)
+  if not pattern_index then return nil, nil, nil end
+  local pat = song:pattern(pattern_index)
+  return pat, pat:track(track_n), pattern_index
 end
 
 local function send_pad(note, color)

@@ -64,8 +64,8 @@ local function is_blank_song()
   local song = renoise.song()
   local sequence = song.sequencer.pattern_sequence
   if #sequence ~= 1 or count_seq_tracks() > 1 then return false end
-  local pattern_index = sequence[1]
-  return pattern_index ~= nil and song:pattern(pattern_index + 1).is_empty
+  local pattern_index = song.sequencer:pattern(1)
+  return pattern_index ~= nil and song:pattern(pattern_index).is_empty
 end
 
 local function ensure_tracks()
@@ -116,13 +116,8 @@ local function ensure_scenes(initialize_existing)
   end
   pat_seq = seq.pattern_sequence
   for slot = 1, math.min(#pat_seq, #SCENES) do
-    local pattern_index = inserted_patterns[slot] or pat_seq[slot]
-    local pat = nil
-    if pattern_index and pattern_index >= 1 and pattern_index <= #song.patterns then
-      pat = song:pattern(pattern_index)
-    elseif pattern_index and pattern_index + 1 <= #song.patterns then
-      pat = song:pattern(pattern_index + 1)
-    end
+    local pattern_index = inserted_patterns[slot] or seq:pattern(slot)
+    local pat = pattern_index and song:pattern(pattern_index) or nil
     local recover_partial = slot > 5 and pat and pat.is_empty and (pat.name or "") == ""
     if pat and (initialize_existing or slot > original_count or recover_partial) then
       pcall(function() pat.number_of_lines = SCENES[slot].pattern_lines end)

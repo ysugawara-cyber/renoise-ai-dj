@@ -65,14 +65,11 @@ local function cur_seq()
   return t.playing and t.playback_pos.sequence or t.edit_pos.sequence
 end
 
--- 再生中パターンの解決: sequencer slot 番号は pattern index ではない。
--- pattern_sequence[slot] の値は 0-based の pattern 番号(GUI の "Pattern 00" 等)。
--- song:pattern() は 1-based なので +1 して渡すこと。
 local function cur_pattern_track(track_n)
   local song = renoise.song()
   local seq = cur_seq()
-  local pat_idx = song.sequencer.pattern_sequence[seq]
-  local pat = pat_idx and song:pattern(pat_idx + 1) or song:pattern(seq)
+  local pattern_index = song.sequencer:pattern(seq)
+  local pat = song:pattern(pattern_index)
   return pat, pat:track(track_n)
 end
 
@@ -185,8 +182,8 @@ function M.one_shot(track_id, note, velocity, length_lines)
 
   local song = renoise.song()
   local seq = cur_seq()
-  local pat_idx = song.sequencer.pattern_sequence[seq]
-  local pat = pat_idx and song:pattern(pat_idx + 1) or song:pattern(seq)
+  local pattern_index = song.sequencer:pattern(seq)
+  local pat = song:pattern(pattern_index)
   local pt = pat:track(tn)
 
   local pos = song.transport.playing and song.transport.playback_pos
@@ -234,9 +231,9 @@ function M.performance_one_shot(track_id, note, velocity, length_lines)
   end
   if song:track(tn).type ~= renoise.Track.TRACK_TYPE_SEQUENCER then return false end
   local seq = cur_seq()
-  local pat_idx = song.sequencer.pattern_sequence[seq]
-  if pat_idx == nil then return false end
-  local pat = song:pattern(pat_idx + 1)
+  local pattern_index = song.sequencer:pattern(seq)
+  if not pattern_index then return false end
+  local pat = song:pattern(pattern_index)
   local loop_seconds = pat.number_of_lines / song.transport.lpb * 60 / song.transport.bpm
   if loop_seconds < 1 then return false end
   local pt = pat:track(tn)
@@ -275,7 +272,7 @@ function M.performance_one_shot(track_id, note, velocity, length_lines)
   note_col.volume_value = note_velocity
   pt:line(off_row):note_column(column).note_string = "OFF"
   table.insert(_performance_notes, {
-    pattern_index = pat_idx,
+    pattern_index = pattern_index,
     sequence = seq,
     track = tn,
     row = row,

@@ -82,11 +82,11 @@
   `io.open` / `os.remove` / `os.rename` / `require` of http modules（ネットワーク呼出防止）。
   標準ライブラリの `require`（例: `require "osc_protocol"`）は許可。
 - **パターン書き込み先**: `renoise.song():pattern(N)` はパターンプールの1-based インデックス。
-  現在再生中のパターンに書き込むには以下を使うこと:
+  Renoise 3.5.4で現在のsequence slotに対応するpatternを書くには以下を使うこと:
   ```lua
   local seq_slot = renoise.song().transport.playback_pos.sequence
-  local pat_idx = renoise.song().sequencer.pattern_sequence[seq_slot]
-  local pat = renoise.song():pattern(pat_idx + 1)  -- pattern_sequence の値は 0-based。+1 必須
+  local pattern_index = renoise.song().sequencer:pattern(seq_slot)
+  local pat = renoise.song():pattern(pattern_index)
   ```
   実装は `tools/AIDJ/pattern_writer.lua` の `cur_pattern_track` を参照。
   **停止中は `playback_pos` の読み書きが Renoise に無視される**ため、シーン slot の取得・
