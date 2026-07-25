@@ -58,16 +58,11 @@ export AIDJ_RENOISE_TOOL_DIR="/mnt/c/Users/<WindowsUser>/AppData/Roaming/Renoise
 ### 空テンプレートの作成
 
 1. Renoiseで新規ソングを開きます。
-2. Tools -> Scripting Terminal & Editorを開きます。
-3. 次を実行します。
-
-```lua
-dofile(renoise.tool().bundle_path .. "/setup/build_track_skeleton.lua")
-```
+2. `Tools -> AIDJ -> Setup -> Build or Extend 16-Scene Skeleton`を実行します。
 
 8 sequencer track、16 scene、各256 lineを作成します。楽器、CUE Send、FXは手動で構成し、任意の名前でXRNSを保存してください。推奨楽器名は`Kick Generator`, `Break - Bangy Bangy`, `Diode 03`, `Tension`, `Lucid Dream`, `Arp Saw Square`, `Harsh Noise`, `tv_set_mono`です。
 
-既存の5-scene XRNSを拡張する場合は先に別名保存してから同じhelperを実行します。既存Trackと
+既存の5-scene XRNSを拡張する場合は先に別名保存してから同じmenuを実行します。既存Trackと
 Pattern 1–5は保持し、不足するPattern 6–16だけを追加します。
 
 ## 環境変数

@@ -36,6 +36,17 @@ renoise.tool():add_menu_entry {
 }
 
 renoise.tool():add_menu_entry {
+  name = "Main Menu:Tools:AIDJ:Setup:Build or Extend 16-Scene Skeleton",
+  invoke = function()
+    local path = renoise.tool().bundle_path .. "setup/build_track_skeleton.lua"
+    local ok, err = pcall(dofile, path)
+    if not ok then
+      renoise.app():show_warning("AIDJ skeleton failed: " .. tostring(err))
+    end
+  end,
+}
+
+renoise.tool():add_menu_entry {
   name = "Main Menu:Tools:AIDJ:Diagnostics:OSC Status",
   invoke = function()
     local status = osc_server.status()

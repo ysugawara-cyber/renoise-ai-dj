@@ -122,12 +122,9 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 - File -> New（空の Song、初期 Pattern 1 つ + Master Track のみ想定）。
 
 ### 5.2 Track skeleton ヘルパを実行
-- Tools -> Show Script Editor & Run で
-  `tools/AIDJ/setup/build_track_skeleton.lua` を開いて実行、または
-  Development Tools の Lua Console で:
-  ```lua
-  dofile(renoise.tool().bundle_path .. "/setup/build_track_skeleton.lua")
-  ```
+- `Tools -> AIDJ -> Setup -> Build or Extend 16-Scene Skeleton`を実行する。
+- Scripting TerminalはToolと別sandboxで`renoise.tool()`が存在しないため、Terminalから
+  `dofile(renoise.tool().bundle_path ...)`を実行しない。
 - ステータスバーに "AIDJ skeleton built." と表示される。
 - 8 sequencer track (drums / breaks / bass / lead / pads / stabs / fx / vox) +
   16 個の256-line Patternが生成される。
