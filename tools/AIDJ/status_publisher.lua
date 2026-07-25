@@ -89,7 +89,10 @@ function M.init(config, ctx)
     if _grid then
       local song = renoise.song()
       if song then
-        _grid.update_playback_position(song.transport.playback_pos.line, song.transport.playing)
+        local t = song.transport
+        local pos = t.playing and t.playback_pos or t.edit_pos
+        require("pattern_writer").cleanup_performance_notes(pos.sequence, pos.line, t.playing)
+        _grid.update_playback_position(pos.line, t.playing, pos.sequence)
       end
     end
   end

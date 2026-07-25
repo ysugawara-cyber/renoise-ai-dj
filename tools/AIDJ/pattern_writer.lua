@@ -7,6 +7,22 @@ local M = {}
 local _ctx
 local _config
 local _locked_rows = {}  -- {track_id_num -> { [row] = tui_id }}
+local _performance_notes = {}
+
+local function clear_performance_entry(entry)
+  local ok, pt = pcall(function()
+    return renoise.song():pattern(entry.pattern_index + 1):track(entry.track)
+  end)
+  if not ok or not pt then return end
+  local note_col = pt:line(entry.row):note_column(entry.column)
+  if note_col.note_string == entry.note and
+     note_col.instrument_value == entry.instrument and
+     note_col.volume_value == entry.volume then
+    note_col:clear()
+  end
+  local off_col = pt:line(entry.off_row):note_column(entry.column)
+  if off_col.note_string == "OFF" and off_col.instrument_value == 255 then off_col:clear() end
+end
 
 local function instrument_index(instrument)
   local inst_val = tonumber(instrument)
@@ -64,9 +80,12 @@ function M.init(config, ctx)
   _config = config
   _ctx = ctx
   _locked_rows = {}
+  _performance_notes = {}
 end
 
 function M.deinit()
+  for _, entry in ipairs(_performance_notes) do clear_performance_entry(entry) end
+  _performance_notes = {}
   _locked_rows = {}
 end
 
@@ -137,6 +156,21 @@ function M.clear_range(track_id, start_row, row_count)
   return true
 end
 
+function M.clear_note_column_range(track_id, start_row, row_count, column_index)
+  local tn = track_num(track_id)
+  if not tn then return false end
+  if renoise.song():track(tn).type ~= renoise.Track.TRACK_TYPE_SEQUENCER then return false end
+  local pat, pt = cur_pattern_track(tn)
+  local column = math.max(1, math.min(12, tonumber(column_index) or 1))
+  for i = 0, (row_count or 1) - 1 do
+    local row = start_row + 1 + i
+    if row > 0 and row <= pat.number_of_lines then
+      pt:line(row):note_column(column):clear()
+    end
+  end
+  return true
+end
+
 --------------------------------------------------------------------------------
 -- one-shot note injection
 -- Renoise has no public "trigger_note" Lua API; instead we write the note
@@ -188,6 +222,83 @@ function M.one_shot(track_id, note, velocity, length_lines)
     end
   end
   return true
+end
+
+function M.performance_one_shot(track_id, note, velocity, length_lines)
+  local tn = track_num(track_id)
+  if not tn then return false end
+  local song = renoise.song()
+  if not song.transport.playing then
+    renoise.app():show_status("AIDJ: Perform mode requires playback")
+    return false
+  end
+  if song:track(tn).type ~= renoise.Track.TRACK_TYPE_SEQUENCER then return false end
+  local seq = cur_seq()
+  local pat_idx = song.sequencer.pattern_sequence[seq]
+  if pat_idx == nil then return false end
+  local pat = song:pattern(pat_idx + 1)
+  local loop_seconds = pat.number_of_lines / song.transport.lpb * 60 / song.transport.bpm
+  if loop_seconds < 1 then return false end
+  local pt = pat:track(tn)
+  local pos = song.transport.playing and song.transport.playback_pos or song.transport.edit_pos
+  local row = song.transport.playing and math.min(pos.line + 1, pat.number_of_lines) or 1
+  local note_length = math.max(1, tonumber(length_lines) or 2)
+  local off_row = row + note_length
+  if off_row > pat.number_of_lines then return false end
+  local column = nil
+  for candidate = 2, 12 do
+    local available = true
+    for check_row = row, off_row do
+      if not pt:line(check_row):note_column(candidate).is_empty then
+        available = false
+        break
+      end
+    end
+    if available then
+      column = candidate
+      break
+    end
+  end
+  if not column then
+    renoise.app():show_warning("AIDJ: no empty performance note column on track " .. tn)
+    return false
+  end
+  local expected = _config and _config.track_instruments and _config.track_instruments[tn]
+  local inst_val = instrument_index(expected)
+  if not inst_val then return false end
+  local track = song:track(tn)
+  track.visible_note_columns = math.max(track.visible_note_columns, column)
+  local note_col = pt:line(row):note_column(column)
+  local note_velocity = math.max(0, math.min(127, tonumber(velocity) or 100))
+  note_col.note_string = tostring(note or "C-4")
+  note_col.instrument_string = string.format("%02X", inst_val)
+  note_col.volume_value = note_velocity
+  pt:line(off_row):note_column(column).note_string = "OFF"
+  table.insert(_performance_notes, {
+    pattern_index = pat_idx,
+    sequence = seq,
+    track = tn,
+    row = row,
+    off_row = off_row,
+    column = column,
+    note = note_col.note_string,
+    instrument = inst_val,
+    volume = note_velocity,
+    start_line = pos.line,
+  })
+  return true
+end
+
+function M.cleanup_performance_notes(sequence, line, is_playing)
+  for index = #_performance_notes, 1, -1 do
+    local entry = _performance_notes[index]
+    local passed = not is_playing or sequence ~= entry.sequence or
+      line > entry.off_row or line < entry.start_line
+    if passed then
+      clear_performance_entry(entry)
+      table.remove(_performance_notes, index)
+    end
+  end
 end
 
 --------------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 --
 -- 生成するもの:
 --   1) 8 つの Sequencer Track(drums / breaks / bass / lead / pads / stabs / fx / vox)
---   2) 5 つの Pattern + Pattern Sequence slot(scenes.yaml と対応)
+--   2) 16 個の Pattern + Pattern Sequence slot(scenes.yaml と対応)
 --   3) 各 Pattern の行数を 256 (16 steps x 16 lines) に設定
 --
 -- 手動で残す作業:
@@ -31,6 +31,17 @@ local SCENES = {
   {name = "hardcore_kick_run",    pattern_lines = 256},
   {name = "breakdown_ambient",    pattern_lines = 256},
   {name = "outro_distorted",      pattern_lines = 256},
+  {name = "jungle_switch",        pattern_lines = 256},
+  {name = "gabber_pressure",      pattern_lines = 256},
+  {name = "vox_break",            pattern_lines = 256},
+  {name = "crossbreed_drive",     pattern_lines = 256},
+  {name = "amen_overload",        pattern_lines = 256},
+  {name = "industrial_halfstep",  pattern_lines = 256},
+  {name = "rave_stab_run",        pattern_lines = 256},
+  {name = "noise_transition",     pattern_lines = 256},
+  {name = "hardcore_peak",        pattern_lines = 256},
+  {name = "final_break",          pattern_lines = 256},
+  {name = "encore",               pattern_lines = 256},
 }
 
 local PATTERN_LINES = 256
@@ -47,6 +58,14 @@ local function count_seq_tracks()
     end
   end
   return n
+end
+
+local function is_blank_song()
+  local song = renoise.song()
+  local sequence = song.sequencer.pattern_sequence
+  if #sequence ~= 1 or count_seq_tracks() > 1 then return false end
+  local pattern_index = sequence[1]
+  return pattern_index ~= nil and song:pattern(pattern_index + 1).is_empty
 end
 
 local function ensure_tracks()
@@ -79,10 +98,11 @@ local function name_and_color_tracks()
   log("track names + colors set")
 end
 
-local function ensure_scenes()
+local function ensure_scenes(initialize_existing)
   local song = renoise.song()
   local seq = song.sequencer
   local pat_seq = seq.pattern_sequence
+  local original_count = #pat_seq
   local need = math.max(0, #SCENES - #pat_seq)
   for _ = 1, need do
     local slot = #seq.pattern_sequence + 1
@@ -94,7 +114,8 @@ local function ensure_scenes()
     end
   end
   pat_seq = seq.pattern_sequence
-  for slot = 1, math.min(#pat_seq, #SCENES) do
+  local first_slot = initialize_existing and 1 or original_count + 1
+  for slot = first_slot, math.min(#pat_seq, #SCENES) do
     local pat_idx = pat_seq[slot]
     local pat = song:pattern(pat_idx + 1)
     if pat then
@@ -102,7 +123,7 @@ local function ensure_scenes()
       pcall(function() pat.name = SCENES[slot].name end)
     end
   end
-  log("added " .. need .. " scenes (256-line patterns) to pattern_sequence")
+  log("added " .. need .. " scenes; existing patterns preserved=" .. tostring(not initialize_existing))
 end
 
 local function main()
@@ -111,9 +132,10 @@ local function main()
     return
   end
   log("start")
+  local initialize_existing = is_blank_song()
   ensure_tracks()
-  name_and_color_tracks()
-  ensure_scenes()
+  if initialize_existing then name_and_color_tracks() end
+  ensure_scenes(initialize_existing)
   log("done -- manual steps: instruments, CUE bus (normally #10), FX devices, save as .xrns")
   renoise.app():show_status(
     "AIDJ skeleton built. See log for manual steps (instruments, CUE bus, FX).")

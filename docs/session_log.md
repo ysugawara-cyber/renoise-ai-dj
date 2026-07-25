@@ -12,27 +12,24 @@
 - パッドグリッド: notes 0-63, 上下反転 (bottom=0-7, top=56-63)
 - LED 公式プロトコル: 0x96=100%輝度, pad_idx=note, vel=0x15=緑, 0x09=オレンジ, 0x05=赤
 - SCENE LAUNCH ボタン: notes 112-119
-- FADER CTRL: notes 100-107 (100=Play, 101=Stop)
-- フェーダー: CC 48-55 (Track 1-8 Volume)
-- 3層構造実装済み:
-  - Row 0: Scene Launch (緑LED)
-  - Row 1-4: パターンシーケンスジャンプ (オレンジLED)
-  - Row 5: loop_pattern モメンタリ (赤LED)
-  - Row 6: Distortion device active トグル (赤LED)
-  - Row 7: track mute モメンタリ (赤LED)
+- FADER CTRL: Play / Stop / Loop / Prev Scene / Next Scene / Prev Bank / Next Bank / Mode
+- フェーダー: CC 48-55 (Track 1-8 Volume), CC 56 (Master)
+- Hybrid grid: Step modeは選択Trackの64-line bankをtoggle、Perform modeはTrack別one-shot。
+- SHIFT: 上段でTrack、2段目でbank、右ボタンでScene 9-16、SHIFT+Modeでbank clear。
 
 ### AKAI MIDImix (§4)
 - MUTE: notes 1,4,7,10,13,16,19,22 → track=(note-1)/3+1
 - REC/ARM (Solo): notes 3,6,9,12,15,18,21,24 → note%3==0
-- ノブ: CC 16,20,24,28,46,50,54,58
-  - 割当: BPM, Swing, MasterPan, SendReverb, SendDelay, FilterCutoff, Distortion, Bitcrush
+- 上段ノブ: Track 1-8 Pan
+- 中段ノブ: Track 1-8 CUE Level
+- 下段ノブ: BPM, Swing, MasterPan, Reverb, Delay, Filter, Distortion, Bitcrush
 - フェーダー: CC 19,23,27,31,49,53,57,61 → Track 1-8 Volume
 - マスターフェーダー: CC 62 → Master Volume
 
 ### テンプレート XRNS (§5)
 - 8 sequencer tracks + CUE bus (track 10)
 - 楽器: Kick Generator, Break - Bangy Bangy, Diode 03, Tension, String Thing, Lucid Dream, Arp Saw Square, Harsh Noise, tv_set_mono
-- 5 pattern sequence slots。旧XRNSは先頭patternのみ64 linesだったが、現行skeletonは全slotを256 linesへ設定する。
+- 16 pattern sequence slots。現行skeletonは全slotを256 linesへ設定する。
 - FX devices per fx_mapping.yaml
 
 ## 修正したバグ

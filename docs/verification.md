@@ -71,17 +71,24 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 
 ## 3. APC mini mk2 検証（V4 / V5 前半）
 
-### 3.1 Pad row 0 (Note 56..63) → scene launch
-- Renoise の Pattern Sequence slot 1..5 を押す。6..8はslotを追加した場合のみ有効。
-- LED が緑点灯する（`tools/AIDJ/midi_router.lua:23` で feedback_apc(note, 1)）。
+### 3.1 Hybrid pad grid
+- Step modeでpadを押すと、選択Track/64-line bankの対応noteがtoggleされLEDが緑になる。
+- SHIFT+最上段でTrack 1..8、SHIFT+2段目左4padでbank 1..4を選ぶ。
+- 再生中にFADER CTRL 8でPerform modeへ切替し、各columnがTrack 1..8のone-shotになる。
+  note column 2以降へ一時書込され、通過後に自動消去されることを確認する。
+- SHIFT+FADER CTRL 8を3秒以内に2回押すと、選択bankのnote column 1だけをclearする。
+  1回目では警告だけになり、effect/他note columnを保持することを確認する。
 
-### 3.2 Sliders (CC 48..55) → Track volume
+### 3.2 Scene / sliders
+- 右側Sceneボタンは通常Scene 1..8、SHIFT併用でScene 9..16。
 - Slider 1 を動かす → Track 1 の postfx_volume が 0..1.41253 で変化。
+- Slider 9 (CC56)を動かす → Master volumeが変化。
 - `tools/AIDJ/midi_router.lua:29` が int×1000 に正規化済み、`pattern_writer.set_volume`
   が `/1000` 復元するため、可聴範囲全域が効くはず。
 
 ### 3.3 Transport buttons
 - FADER CTRL 左 2 つ (Note 100 / 101) → Play / Stop。
+- Note 102..107 → Loop / Previous Scene / Next Scene / Previous Bank / Next Bank / Mode。
   `tools/AIDJ/midi_router.lua` の `handle_apc` が直接処理する
   (Renoise MIDI Mapping XML は廃止済み。旧 `host/midi_maps/AIDJ_APC_MIDImix.xml` は
   誤ったマッピングを含んでいたため削除)。
@@ -96,10 +103,12 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 - 割当の詳細は `.opencode/rules/midi_mapping.md` と
   `tools/AIDJ/midi_router.lua` の `handle_mix` を参照。
 
-### 4.2 Macro knobs (Renoise Lua直接処理)
-- CC: `16,20,24,28,46,50,54,58`
-- Knob 1 (CC16) → BPM、Knob 2 (CC20) → Swing、Knob 3 (CC24) → Master Pan。
-- Knob 4-8のFXは現在のXRNS device構成と照合して手動確認する。
+### 4.2 Knobs (Renoise Lua直接処理)
+- 上段`16,20,24,28,46,50,54,58` → Track 1..8 Pan。
+- 中段`17,21,25,29,47,51,55,59` → Track 1..8 CUE Level。
+- 下段`18,22,26,30,48,52,56,60` → BPM / Swing / Master Pan / Reverb /
+  Delay / Master Filter / Distortion / Bitcrush。
+- CUEとFXは現在のXRNS device構成と照合して手動確認する。
 - bridge側MIDI listenerは標準で無効。WSLからUSB MIDIへアクセスしない。
 
 ### 4.3 Faders
@@ -121,7 +130,7 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
   ```
 - ステータスバーに "AIDJ skeleton built." と表示される。
 - 8 sequencer track (drums / breaks / bass / lead / pads / stabs / fx / vox) +
-  5 つの 256-line Pattern が生成される。
+  16 個の256-line Patternが生成される。
 
 ### 5.3 CUE bus + #Send + FX 一括セットアップ（Lua Console）
 
@@ -184,8 +193,8 @@ print("#Send -> CUE, Amount=0.8")
 ### 5.4 手動で残す作業
 1. 各トラックに楽器(Sampler または VSTi)を挿入し、サンプル/プリセットを割当。
    楽器命名は `music_constraints.md` の `KCK01` / `SNR01` / `BAS_reese01` 等に従う。
-2. Pattern Sequence の slot 1..5 に 5 つの Pattern が対応済み
-   （skeleton が slot 追加済み、必要なら slot 順をドラッグで調整）。
+2. Pattern Sequence のslot 1..16に16個のPatternが対応済み
+   （skeletonがslot追加済み、必要ならslot順をドラッグで調整）。
 3. File -> Save As で `AIDJ-TEMPLATE.<date>.xrns` として保存。
    `~/.renoise/Templates/` に配置すれば Renoise の File -> New から選べる。
 

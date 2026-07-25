@@ -11,16 +11,12 @@ Renoise の MIDI Map XML は使用しない（Lua 側で完結）。
 
 ### パッドグリッド (8×8)
 
-| 行 | ノート番号 | 用途 |
-|----|-----------|------|
-| Row 0 (最上段) | 56–63 | Scene Launch 1–8 + LED緑点灯 |
-| Row 1 | 48–55 | 未割当 |
-| Row 2 | 40–47 | 未割当 |
-| Row 3 | 32–39 | 未割当 |
-| Row 4 | 24–31 | 未割当 |
-| Row 5 | 16–23 | 未割当 |
-| Row 6 | 8–15 | 未割当 |
-| Row 7 (最下段) | 0–7 | 未割当 |
+- **Step mode (既定)**: 64 pad = 選択Trackの64 line。押下でnoteをtoggle。
+- 4 bankで256 lineをカバー: bank 1=0–63、2=64–127、3=128–191、4=192–255。
+- **Perform mode**: 再生中のみ有効。column 1–8 = Track 1–8、row = pitch。
+  空きnote column 2–12へ短いone-shotを書き、通過後に自動消去する。
+- MODE切替はFADER CTRL 8 (note 107)。
+- SHIFT中は最上段で編集Track 1–8、2段目左4padでbank 1–4を選択する。
 
 - 計算式: `note = (7 - row) * 8 + col`
 - パッド押下時: Note On (0x90), note 0–63, vel 127
@@ -30,14 +26,14 @@ Renoise の MIDI Map XML は使用しない（Lua 側で完結）。
 
 | ボタン | ノート | 用途 |
 |--------|--------|------|
-| 1 (上) | 112 | Scene 1 |
-| 2 | 113 | Scene 2 |
-| 3 | 114 | Scene 3 |
-| 4 | 115 | Scene 4 |
-| 5 | 116 | Scene 5 |
-| 6 | 117 | Scene 6 |
-| 7 | 118 | Scene 7 |
-| 8 (下) | 119 | Scene 8 |
+| 1 (上) | 112 | Scene 1 / SHIFT: Scene 9 |
+| 2 | 113 | Scene 2 / SHIFT: Scene 10 |
+| 3 | 114 | Scene 3 / SHIFT: Scene 11 |
+| 4 | 115 | Scene 4 / SHIFT: Scene 12 |
+| 5 | 116 | Scene 5 / SHIFT: Scene 13 |
+| 6 | 117 | Scene 6 / SHIFT: Scene 14 |
+| 7 | 118 | Scene 7 / SHIFT: Scene 15 |
+| 8 (下) | 119 | Scene 8 / SHIFT: Scene 16 |
 
 ### FADER CTRL ボタン (パッド下横 8 個)
 
@@ -45,13 +41,18 @@ Renoise の MIDI Map XML は使用しない（Lua 側で完結）。
 |--------|--------|------|
 | 1 (左) | 100 | **Transport Play** |
 | 2 | 101 | **Transport Stop** |
-| 3–8 | 102–107 | 未割当 |
+| 3 | 102 | Pattern Loop toggle |
+| 4 | 103 | Previous Scene |
+| 5 | 104 | Next Scene |
+| 6 | 105 | Previous 64-line bank |
+| 7 | 106 | Next 64-line bank |
+| 8 | 107 | Step/Perform mode / SHIFT: clear selected bank (3秒以内に2回) |
 
 ### SHIFT ボタン
 
 | ノート | 用途 |
 |--------|------|
-| 122 | 未割当 |
+| 122 | Track/bank選択、Scene 9–16、bank clearのmodifier |
 
 ### フェーダー (右側縦 9 本)
 
@@ -65,7 +66,7 @@ Renoise の MIDI Map XML は使用しない（Lua 側で完結）。
 | 6 | 53 | Track 6 Volume |
 | 7 | 54 | Track 7 Volume |
 | 8 | 55 | Track 8 Volume |
-| 9 (マスター/下) | 56 | 未割当 |
+| 9 (マスター/下) | 56 | Master Volume |
 
 - 値域: 0–127 (絶対位置)
 - 内部変換: `msg.value * 1000 / 127` (int×1000 規約)
@@ -81,6 +82,8 @@ APC mini mk2 公式プロトコル (v1.0) 準拠:
   - `0x15` (21) = 緑 (#00FF00)
   - `0x00` = 消灯
   - その他の色: プロトコル文書の Velocity to RGB Color Chart 参照
+- Step mode: 緑=note、赤=`OFF`/playhead。Perform mode: amber、押下中=赤。
+- SHIFT overlay: 最上段の赤=選択Track、2段目の赤=選択bank。
 - **単色 LED (SCENE LAUNCH 等)**: `0x90, button_value, behavior`
   - `0x00` = 消灯, `0x01`/`0x03–0x7F` = 点灯, `0x02` = 点滅
 - **SysEx RGB**: 任意色指定可能（プロトコル文書 §RGB LED Color Lighting）
@@ -106,18 +109,30 @@ APC mini mk2 公式プロトコル (v1.0) 準拠:
 - 計算式: `track = floor((note - 1) / 3) + 1`
 - 動作: 押下ごとに mute トグル
 
-### マクロノブ (上段横 8 個)
+### 上段ノブ: Track Pan
 
-| ノブ | CC | マクロ | 効果 |
-|------|-----|--------|------|
-| 1 (左) | 16 | bpm_coarse | BPM (120–240) |
-| 2 | 20 | swing | Swing (0.0–1.0) |
-| 3 | 24 | master_pan | Master Pan |
-| 4 | 28 | send_reverb | Track 7 FX#0 param#0 |
-| 5 | 46 | send_delay | Track 7 FX#1 param#0 |
-| 6 | 50 | filter_cutoff | Master FX#0 param#1 |
-| 7 | 54 | distortion | Track 2 FX#0 param#1 |
-| 8 (右) | 58 | bitcrush | Track 7 FX#2 param#0 |
+| Track | CC |
+|-------|----|
+| 1–8 | `16,20,24,28,46,50,54,58` |
+
+### 中段ノブ: Track CUE Level
+
+| Track | CC |
+|-------|----|
+| 1–8 | `17,21,25,29,47,51,55,59` |
+
+### 下段ノブ: Global/FX Macro
+
+| ノブ | CC | 効果 |
+|------|----|------|
+| 1 | 18 | BPM 120–240 |
+| 2 | 22 | Swing 0–1 |
+| 3 | 26 | Master Pan |
+| 4 | 30 | Track 7 Reverb |
+| 5 | 48 | Track 7 Delay |
+| 6 | 52 | Master Filter |
+| 7 | 56 | Track 2 Distortion |
+| 8 | 60 | Track 7 Bitcrush |
 
 - 値域: 0–127
 - 内部変換: `msg.value * 1000 / 127` (int×1000 規約)
@@ -138,5 +153,5 @@ APC mini mk2 公式プロトコル (v1.0) 準拠:
 
 - MIDImix を Renoise の **MIDI Input デバイスとして設定しない**こと（Edit → Preferences → MIDI）。
   Lua tool が直接ハンドルするため、Renoise ネイティブ MIDI 入力と競合しノートが発音される。
-- MIDImix のマクロノブ CC 番号は機体によって異なる可能性あり。上記の値と異なる場合は
-  Output タブで実 CC を確認し `midi_router.lua` の `knob_cc` テーブルを修正する。
+- MIDImix のノブ CC 番号は機体によって異なる可能性あり。上記と異なる場合は
+  Outputタブで実CCを確認し`midi_router.lua`の`pan_cc`/`cue_cc`/`macro_cc`を修正する。

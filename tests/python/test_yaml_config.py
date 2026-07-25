@@ -14,7 +14,8 @@ class YamlConfigTest(unittest.TestCase):
 
     def test_scene_ids_are_sequential(self):
         data = yaml.safe_load((ROOT / "config/scenes.yaml").read_text())
-        self.assertEqual([scene["id"] for scene in data["scenes"]], [1, 2, 3, 4, 5])
+        ids = [scene["id"] for scene in data["scenes"]]
+        self.assertEqual(ids, list(range(1, 17)))
 
 
 if __name__ == "__main__":

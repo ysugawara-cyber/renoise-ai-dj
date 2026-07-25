@@ -65,7 +65,10 @@ export AIDJ_RENOISE_TOOL_DIR="/mnt/c/Users/<WindowsUser>/AppData/Roaming/Renoise
 dofile(renoise.tool().bundle_path .. "/setup/build_track_skeleton.lua")
 ```
 
-8 sequencer track、5 scene、各256 lineを作成します。楽器、CUE Send、FXは手動で構成し、任意の名前でXRNSを保存してください。推奨楽器名は`Kick Generator`, `Break - Bangy Bangy`, `Diode 03`, `Tension`, `Lucid Dream`, `Arp Saw Square`, `Harsh Noise`, `tv_set_mono`です。
+8 sequencer track、16 scene、各256 lineを作成します。楽器、CUE Send、FXは手動で構成し、任意の名前でXRNSを保存してください。推奨楽器名は`Kick Generator`, `Break - Bangy Bangy`, `Diode 03`, `Tension`, `Lucid Dream`, `Arp Saw Square`, `Harsh Noise`, `tv_set_mono`です。
+
+既存の5-scene XRNSを拡張する場合は先に別名保存してから同じhelperを実行します。既存Trackと
+Pattern 1–5は保持し、不足するPattern 6–16だけを追加します。
 
 ## 環境変数
 
@@ -140,11 +143,14 @@ Renoise MIDI Mapping XMLは使用しません。Lua Toolがデバイスを直接
 
 - MIDImix MUTE: Note `1,4,7,10,13,16,19,22`
 - MIDImix REC/ARM/Solo: Note `3,6,9,12,15,18,21,24`
-- MIDImix knobs: CC `16,20,24,28,46,50,54,58`
+- MIDImix upper knobs (Pan): CC `16,20,24,28,46,50,54,58`
+- MIDImix middle knobs (CUE): CC `17,21,25,29,47,51,55,59`
+- MIDImix lower knobs (Macro): CC `18,22,26,30,48,52,56,60`
 - MIDImix faders: CC `19,23,27,31,49,53,57,61`; master CC `62`
-- APC pads: Note `0-63`; scene buttons `112-119`; Play/Stop `100/101`; faders CC `48-55`
+- APC pads: Note `0-63`; scene buttons `112-119`; FADER CTRL `100-107`; SHIFT `122`;
+  Track faders CC `48-55`; Master CC `56`
 
-5 scene構成が標準です。APCのscene 6-8は、XRNSに該当slotがある場合だけ機能します。
+16 scene構成が標準です。APC右側ボタンでScene 1–8、SHIFT併用でScene 9–16を起動します。
 
 ## 設定ファイルの役割
 

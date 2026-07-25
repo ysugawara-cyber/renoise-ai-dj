@@ -94,10 +94,10 @@ Renoise ツールはロード時にそれを読む。逆順で Renoise が先に
   - 「リードにフィルタースイープ 0 -> 1 を 4 小節」(bass_fx へ)
   - 「パッドにリバーブを 60%」(pads へ)
 - Physical control:
-  - **APC** row 0 pads: launch pattern slots 1-5 (6-8は追加slot用)。
-  - **APC** sliders: adjust Track 1-8 volume.
+  - **APC** grid: Step/Perform hybrid。SHIFTでTrack/bank、右ボタンでScene 1-16。
+  - **APC** sliders: Track 1-8 + Master volume。
   - **MIDImix** faders: Track 1-8 volume、master fader: Master volume。
-  - **MIDImix** knobs 1-8: global macros (bpm, swing, sends, etc).
+  - **MIDImix** top/middle/bottom knobs: Track Pan / CUE Level / global FX macros。
   - **MIDImix** MUTE/SOLO buttons: track mute / solo.
 
 ## 4. Fallback procedures
