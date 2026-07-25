@@ -5,7 +5,27 @@
 
 local M = {}
 local _ctx
+local _config
 local _locked_rows = {}  -- {track_id_num -> { [row] = tui_id }}
+
+local function instrument_index(instrument)
+  local inst_val = tonumber(instrument)
+  if inst_val then
+    if inst_val < 0 or inst_val >= #renoise.song().instruments or inst_val % 1 ~= 0 then
+      return nil
+    end
+    return inst_val
+  end
+  if type(instrument) == "string" then
+    local target = string.lower(instrument)
+    for i = 1, #renoise.song().instruments do
+      if string.lower(renoise.song():instrument(i).name) == target then
+        return i - 1
+      end
+    end
+  end
+  return nil
+end
 
 local function track_num(track_id)
   local n = tonumber(track_id)
@@ -41,6 +61,7 @@ local function cur_pattern_track(track_n)
 end
 
 function M.init(config, ctx)
+  _config = config
   _ctx = ctx
   _locked_rows = {}
 end
@@ -85,16 +106,11 @@ function M.write_row(track_id, instrument, note_index, note, velocity, fx_cmds)
   local line = pt:line(line_idx + 1)
   local col = line:note_column(1)
 
-  local inst_val = tonumber(instrument)
-  if not inst_val and type(instrument) == "string" then
-    for i = 1, #renoise.song().instruments do
-      if renoise.song():instrument(i).name == instrument then
-        inst_val = i - 1
-        break
-      end
-    end
+  local inst_val = instrument_index(instrument)
+  if not inst_val then
+    renoise.app():show_warning("AIDJ: instrument not found: " .. tostring(instrument))
+    return false
   end
-  inst_val = inst_val or 0
 
   col.note_string        = tostring(note or "---")
   col.instrument_string  = string.format("%02X", math.max(0, math.min(0xFE, inst_val)))
@@ -151,8 +167,14 @@ function M.one_shot(track_id, note, velocity, length_lines)
   if row > pat.number_of_lines then row = 1 end
   local line = pt:line(row)
   local col = line:note_column(1)
+  local expected = _config and _config.track_instruments and _config.track_instruments[tn]
+  local inst_val = instrument_index(expected)
+  if not inst_val then
+    renoise.app():show_warning("AIDJ: track instrument not found: " .. tostring(expected))
+    return false
+  end
   col.note_string  = tostring(note or "C-4")
-  col.instrument_string = string.format("%02X", tn - 1)
+  col.instrument_string = string.format("%02X", inst_val)
   col.volume_value = math.max(0, math.min(127, tonumber(velocity) or 100))
 
   if length_lines and tonumber(length_lines) > 1 then

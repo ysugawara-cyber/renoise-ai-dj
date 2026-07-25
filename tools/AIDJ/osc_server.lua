@@ -42,7 +42,9 @@ function M.dispatch(path, args, types)
       error("invalid OSC signature for " .. path .. ": " .. tostring(types))
     end
     validate_values(path, args)
-    h(args)
+    local result = h(args)
+    if result == false then error("handler rejected " .. path) end
+    return result
   else
     print("AIDJ: no handler for " .. tostring(path))
   end
@@ -114,26 +116,26 @@ function M.init(config, ctx)
     t.groove_amounts = {v, v, v, v}
   end)
 
-  register("/ai/scene", function(a) sl.launch(a[1]) end)
+  register("/ai/scene", function(a) return sl.launch(a[1]) end)
 
   register("/ai/pattern/write", function(a)
-    pw.write_row(a[1], a[2], a[3], a[4], a[5], a[6])
+    return pw.write_row(a[1], a[2], a[3], a[4], a[5], a[6])
   end)
-  register("/ai/pattern/clear", function(a) pw.clear_range(a[1], a[2], a[3]) end)
-  register("/ai/pattern/lock",  function(a) pw.lock_row(a[1], a[2], a[3]) end)
+  register("/ai/pattern/clear", function(a) return pw.clear_range(a[1], a[2], a[3]) end)
+  register("/ai/pattern/lock",  function(a) return pw.lock_row(a[1], a[2], a[3]) end)
 
   register("/ai/note", function(a)
-    pw.one_shot(a[1], a[2], a[3], a[4])
+    return pw.one_shot(a[1], a[2], a[3], a[4])
   end)
 
-  register("/ai/mixer/volume", function(a) pw.set_volume(a[1], a[2]) end)
-  register("/ai/mixer/pan",    function(a) pw.set_pan(a[1], a[2]) end)
-  register("/ai/mixer/mute",   function(a) pw.set_mute(a[1], a[2]) end)
-  register("/ai/mixer/solo",   function(a) pw.set_solo(a[1], a[2]) end)
-  register("/ai/mixer/cue",    function(a) cr.set_cue(a[1], a[2]) end)
+  register("/ai/mixer/volume", function(a) return pw.set_volume(a[1], a[2]) end)
+  register("/ai/mixer/pan",    function(a) return pw.set_pan(a[1], a[2]) end)
+  register("/ai/mixer/mute",   function(a) return pw.set_mute(a[1], a[2]) end)
+  register("/ai/mixer/solo",   function(a) return pw.set_solo(a[1], a[2]) end)
+  register("/ai/mixer/cue",    function(a) return cr.set_cue(a[1], a[2]) end)
 
-  register("/ai/fx/param", function(a) pw.set_fx_param(a[1], a[2], a[3], a[4]) end)
-  register("/ai/fx/macro", function(a) pw.set_macro(a[1], a[2]) end)
+  register("/ai/fx/param", function(a) return pw.set_fx_param(a[1], a[2], a[3], a[4]) end)
+  register("/ai/fx/macro", function(a) return pw.set_macro(a[1], a[2]) end)
 
   local server, err
   if config.osc_listen_host == "0.0.0.0" then

@@ -86,13 +86,19 @@ class BridgeConfigTest(unittest.TestCase):
                     "bpm": 180.0,
                     "active_scene": 2,
                     "play_state": "playing",
-                    "tracks": [{"v": 1.41253, "m": 0, "s": 0}],
+                    "tracks": [{
+                        "v": 1.41253, "m": 0, "s": 0,
+                        "in": "Kick Generator", "ii": 0, "io": 1,
+                    }],
                     "renoise_heartbeat": 123,
                 })
                 result = json.loads(osc_bridge.STATE.read_text())
                 self.assertEqual(result["tracks"]["1"]["locked_rows"], {"0": "tui3"})
                 self.assertEqual(result["tui_instances"], {"tui3": "dj_live_drums"})
                 self.assertAlmostEqual(result["tracks"]["1"]["volume"], 1.0)
+                self.assertEqual(result["tracks"]["1"]["instrument"], "Kick Generator")
+                self.assertEqual(result["tracks"]["1"]["instrument_index"], 0)
+                self.assertTrue(result["tracks"]["1"]["instrument_resolved"])
         finally:
             osc_bridge.STATE, osc_bridge.LOCK = old_state, old_lock
 

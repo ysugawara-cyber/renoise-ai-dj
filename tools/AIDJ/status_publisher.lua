@@ -4,10 +4,24 @@
 
 local M = {}
 local _client, _host, _port, _running = nil, "", 0, false
+local _config = nil
 local osc_protocol = require "osc_protocol"
 local _grid = nil
 local _timer_fn = nil
 local STATUS_INTERVAL_MS = 100
+
+local function instrument_index(name)
+  if not name then return -1 end
+  local target = string.lower(name)
+  for i = 1, #renoise.song().instruments do
+    if string.lower(renoise.song():instrument(i).name) == target then return i - 1 end
+  end
+  return -1
+end
+
+local function json_string(value)
+  return '"' .. string.gsub(string.gsub(value or "", "\\", "\\\\"), '"', '\\"') .. '"'
+end
 
 local function build_msg()
   local song = renoise.song()
@@ -17,12 +31,22 @@ local function build_msg()
   local tracks = {}
   for i = 1, #song.tracks do
     local tr = song:track(i)
-    tracks[i] = string.format(
-      "{\"v\":%.4f,\"m\":%d,\"s\":%d}",
-      tr.postfx_volume.value,
-      tr.mute_state == renoise.Track.MUTE_STATE_MUTED and 1 or 0,
-      (tr.solo_state == true) and 1 or 0
-    )
+    local expected = _config and _config.track_instruments and _config.track_instruments[i]
+    local index = instrument_index(expected)
+    if expected then
+      tracks[i] = string.format(
+        "{\"v\":%.4f,\"m\":%d,\"s\":%d,\"in\":%s,\"ii\":%d,\"io\":%d}",
+        tr.postfx_volume.value,
+        tr.mute_state == renoise.Track.MUTE_STATE_MUTED and 1 or 0,
+        (tr.solo_state == true) and 1 or 0,
+        json_string(expected), index, index >= 0 and 1 or 0)
+    else
+      tracks[i] = string.format(
+        "{\"v\":%.4f,\"m\":%d,\"s\":%d}",
+        tr.postfx_volume.value,
+        tr.mute_state == renoise.Track.MUTE_STATE_MUTED and 1 or 0,
+        (tr.solo_state == true) and 1 or 0)
+    end
   end
   local tracks_str = "[" .. table.concat(tracks, ",") .. "]"
 
@@ -40,6 +64,7 @@ end
 
 function M.init(config, ctx)
   M.deinit()
+  _config = config
   _host = config.osc_send_host
   _port = config.osc_send_port
 
@@ -82,6 +107,7 @@ function M.deinit()
   _timer_fn = nil
   if _client then _client:close() end
   _client = nil
+  _config = nil
 end
 
 function M.set_grid(grid)

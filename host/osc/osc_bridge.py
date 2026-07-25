@@ -261,6 +261,10 @@ def _merge_status_into_state(latest: dict[str, Any]) -> None:
                 track["volume"] = float(context.get("v", 1.0)) / 1.41253
                 track["mute"] = bool(context.get("m", 0))
                 track["solo"] = bool(context.get("s", 0))
+                if "in" in context:
+                    track["instrument"] = str(context["in"])
+                    track["instrument_index"] = int(context.get("ii", -1))
+                    track["instrument_resolved"] = bool(context.get("io", 0))
             state["renoise_heartbeat"] = latest["renoise_heartbeat"]
             atomic_write_json(STATE, state)
         finally:

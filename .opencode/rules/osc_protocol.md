@@ -75,7 +75,7 @@ opencode publishes one atomic JSON file per OSC message through
   "ts": 1719344400123,
   "tui_id": "tui1",
   "path": "/ai/pattern/write",
-  "args": ["1", "KCK01", "00", "C-4", 120, "0Cxx"]
+  "args": ["1", "Kick Generator", "00", "C-4", 120, "0Cxx"]
 }
 ```
 producerは同一directoryの一時ファイルをfsyncして`os.replace()`で`.json`へ公開する。

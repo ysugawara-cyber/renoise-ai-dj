@@ -5,6 +5,16 @@ local M = {
   osc_listen_host = "127.0.0.1",
   osc_listen_port = 8080,
   osc_send_port    = 8088,
+  track_instruments = {
+    [1] = "Kick Generator",
+    [2] = "Break - Bangy Bangy",
+    [3] = "Diode 03",
+    [4] = "Tension",
+    [5] = "Lucid Dream",
+    [6] = "Arp Saw Square",
+    [7] = "Harsh Noise",
+    [8] = "tv_set_mono",
+  },
 }
 
 local function valid_ipv4(value)
