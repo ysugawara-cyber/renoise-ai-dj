@@ -123,6 +123,9 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 - File -> New（空の Song、初期 Pattern 1 つ + Master Track のみ想定）。
 
 ### 5.2 Track skeleton ヘルパを実行
+- fresh installでは`Tools -> AIDJ -> Setup -> Build Turnkey Song (Fresh Song Only)`を推奨。
+- 完了後に`Tools -> AIDJ -> Setup -> Validate Current Song`を実行する。
+- 以下のskeleton/CUE/FX手順は既存Songを手動構築する場合のadvanced手順。
 - `Tools -> AIDJ -> Setup -> Build or Extend 16-Scene Skeleton`を実行する。
 - Scripting TerminalはToolと別sandboxで`renoise.tool()`が存在しないため、Terminalから
   `dofile(renoise.tool().bundle_path ...)`を実行しない。
@@ -190,7 +193,8 @@ print("#Send -> CUE, Amount=0.8")
 
 ### 5.4 手動で残す作業
 1. 各トラックに楽器(Sampler または VSTi)を挿入し、サンプル/プリセットを割当。
-   楽器命名は `music_constraints.md` の `KCK01` / `SNR01` / `BAS_reese01` 等に従う。
+   runtime必須名は`Kick Generator`, `Break - Bangy Bangy`, `Diode 03`, `Tension`,
+   `Lucid Dream`, `Arp Saw Square`, `Harsh Noise`, `tv_set_mono`。
 2. Pattern Sequence のslot 1..16に16個のPatternが対応済み
    （skeletonがslot追加済み、必要ならslot順をドラッグで調整）。
 3. File -> Save As で `AIDJ-TEMPLATE.<date>.xrns` として保存。
@@ -218,4 +222,4 @@ print("#Send -> CUE, Amount=0.8")
   `pattern_writer.lua` / `osc_bridge.py`
 - MIDI 系（手順 3, 4）→ `midi_router.lua`
 - 検証スクリプト自体 → `host/osc/verify_roundtrip.py`
-- テンプレート作成（手順 5）→ `tools/AIDJ/setup/build_track_skeleton.lua`
+- ターンキーSong作成（手順 5）→ `tools/AIDJ/setup/build_turnkey_song.lua`

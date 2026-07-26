@@ -34,15 +34,15 @@ macros:
     target:
       track: "7"
       fx_index: 1
-      param_index: 0
+      param_index: 4
 
   - name: filter_cutoff
-    description: Master Digital Filter parameter 2
+    description: Master Digital Filter cutoff
     range: [0.0, 1.0]
     target:
       track: master
       fx_index: 0
-      param_index: 0
+      param_index: 1
 
   - name: distortion
     description: Distortion amount on break bus
@@ -50,7 +50,7 @@ macros:
     target:
       track: "2"
       fx_index: 0
-      param_index: 0
+      param_index: 1
 
   - name: bitcrush
     description: Cabinet drive placeholder on track 7
@@ -58,4 +58,4 @@ macros:
     target:
       track: "7"
       fx_index: 2
-      param_index: 0
+      param_index: 2

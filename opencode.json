@@ -1,0 +1,64 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "openai/gpt-5.6-luna-fast",
+  "small_model": "openai/gpt-5.4-mini-fast",
+  "default_agent": "dj_live_pads",
+  "agent": {
+    "dj_live_pads": {
+      "model": "openai/gpt-5.6-luna-fast",
+      "variant": "none"
+    },
+    "dj_live_bass_fx": {
+      "model": "openai/gpt-5.5-fast",
+      "variant": "low"
+    },
+    "dj_live_drums": {
+      "model": "openai/gpt-5.6-terra-fast",
+      "variant": "low"
+    },
+    "dj_conductor": {
+      "model": "openai/gpt-5.4-mini-fast",
+      "variant": "none"
+    }
+  },
+  "instructions": [
+    "AGENTS.md",
+    ".opencode/rules/music_constraints.md",
+    ".opencode/rules/osc_protocol.md",
+    ".opencode/rules/midi_mapping.md"
+  ],
+  "permission": {
+    "bash": "allow",
+    "edit": "allow",
+    "write": "allow",
+    "read": "allow"
+  },
+  "watcher": {
+    "ignore": [
+      "host/state/**",
+      "tools/AIDJ/logs/**",
+      "tools/AIDJ/generated/**",
+      "host/osc/outbox/**",
+      "host/osc/sent/**",
+      "*.xrns",
+      "*.tmp"
+    ]
+  },
+  "snapshot": true,
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 12000
+  },
+  "provider": {
+    "opencode-go": {
+      "options": {
+        "timeout": 600000,
+        "chunkTimeout": 60000,
+        "setCacheKey": true
+      }
+    }
+  },
+  "share": "disabled",
+  "autoupdate": "notify"
+}

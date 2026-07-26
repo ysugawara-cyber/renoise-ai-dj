@@ -378,7 +378,13 @@ function M.set_fx_param(track_id, fx_index, param_index, value)
   if not fx then return false end
   local param = fx.parameters[tonumber(param_index) + 1]
   if not param then return false end
-  param.value = math.max(0, math.min(1, (tonumber(value) or 0) / 1000))
+  local normalized = math.max(0, math.min(1, (tonumber(value) or 0) / 1000))
+  local mapped = param.value_min + (param.value_max - param.value_min) * normalized
+  if param.value_quantum and param.value_quantum > 0 then
+    mapped = param.value_min + math.floor(
+      (mapped - param.value_min) / param.value_quantum + 0.5) * param.value_quantum
+  end
+  param.value = math.max(param.value_min, math.min(param.value_max, mapped))
   return true
 end
 

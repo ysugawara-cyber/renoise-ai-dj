@@ -7,6 +7,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$SCRIPT_DIR"
 cd "$ROOT"
 
+if [ -f "$ROOT/.env" ]; then
+    set -a
+    source "$ROOT/.env"
+    set +a
+fi
+
 echo "========================================"
 echo "  AIDJ Live Startup"
 echo "========================================"
@@ -18,24 +24,46 @@ echo ""
 # ターミナル終了時に SIGHUP で bridge が死亡し、書き込みが静かに失敗していた)。
 LOG="$ROOT/host/state/bridge.log"
 PIDFILE="$ROOT/host/state/bridge.pid"
+PYTHON="$ROOT/host/.venv/bin/python"
+BRIDGE="$ROOT/host/osc/osc_bridge.py"
 mkdir -p "$ROOT/host/state"
+if [ ! -x "$PYTHON" ]; then
+    echo "[✗] Python environment not found. Run ./setup.sh first."
+    exit 1
+fi
 if [ -f "$LOG" ] && [ "$(stat -c%s "$LOG" 2>/dev/null || echo 0)" -gt 10485760 ]; then
     mv "$LOG" "$LOG.1"
 fi
 
 # pgrep は末尾アンカー必須: "osc_bridge.py" を含むシェルのコマンドライン
 # (例: py_compile 経由の起動)に誤マッチして起動スキップする事故があった
-BRIDGE_PAT='osc_bridge\.py$'
+find_bridge_pid() {
+    python3 - "$BRIDGE" <<'PY'
+import pathlib, sys
+script = sys.argv[1]
+for path in pathlib.Path("/proc").glob("[0-9]*/cmdline"):
+    try:
+        args = [part.decode() for part in path.read_bytes().split(b"\0") if part]
+    except (OSError, UnicodeDecodeError):
+        continue
+    if script in args:
+        print(path.parent.name)
+        break
+PY
+}
 
-if pgrep -f "$BRIDGE_PAT" >/dev/null 2>&1; then
-    echo "[✓] osc_bridge.py は既に起動中 (pid: $(pgrep -f "$BRIDGE_PAT" | tr '\n' ' '))"
+RUNNING_PID="$(find_bridge_pid)"
+if [ -n "$RUNNING_PID" ]; then
+    printf '%s\n' "$RUNNING_PID" > "$PIDFILE"
+    echo "[✓] osc_bridge.py は既に起動中 (pid: $RUNNING_PID)"
 else
     echo "[*] osc_bridge.py をデタッチ起動 (log: host/state/bridge.log)..."
-    setsid -f "$ROOT/host/.venv/bin/python" -u "$ROOT/host/osc/osc_bridge.py" >> "$LOG" 2>&1 < /dev/null
+    setsid -f "$PYTHON" -u "$BRIDGE" >> "$LOG" 2>&1 < /dev/null
     sleep 2
-    if pgrep -f "$BRIDGE_PAT" >/dev/null 2>&1; then
-        pgrep -f "$BRIDGE_PAT" > "$PIDFILE"
-        echo "[✓] osc_bridge.py 起動完了 (pid: $(tr '\n' ' ' < "$PIDFILE"))"
+    RUNNING_PID="$(find_bridge_pid)"
+    if [ -n "$RUNNING_PID" ]; then
+        printf '%s\n' "$RUNNING_PID" > "$PIDFILE"
+        echo "[✓] osc_bridge.py 起動完了 (pid: $RUNNING_PID)"
     else
         echo "[✗] osc_bridge.py 起動失敗。$LOG を確認:"
         tail -20 "$LOG" 2>/dev/null

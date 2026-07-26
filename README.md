@@ -5,8 +5,8 @@ Renoise、OpenCode、OSC、APC mini mk2、AKAI MIDImixを組み合わせた、�
 ## 公開版の範囲
 
 - 公開リポジトリにはOpenCodeの4ロール、Renoise Lua Tool、bridge、設定、テストを含みます。
-- **サンプル入りXRNSは同梱しません**。音源の再配布条件を確認できないためです。`tools/AIDJ/setup/build_track_skeleton.lua`で空の骨格を作り、利用者自身が権利を持つサンプルを割り当ててください。
-- `opencode.json`は個人設定としてignoreします。`opencode.example.json`をコピーして使います。OAuthトークン/APIキーはリポジトリへ保存しません。
+- **サンプル入りXRNSは同梱しません**。代わりにToolが数式から8個の簡易fallback音源を生成します。利用者は後から権利を持つサンプルへ差し替えられます。
+- `opencode.json`、4 TUIのagent定義、commands、共有rulesを同梱します。OAuthトークン/APIキーはリポジトリへ保存しません。
 
 ## 必要環境
 
@@ -19,27 +19,25 @@ Renoise、OpenCode、OSC、APC mini mk2、AKAI MIDImixを組み合わせた、�
 
 ハードウェアなしでも、OpenCodeエージェント、outbox、bridge、OSC送受信、Renoise GUIでのパターン書込は利用できます。MIDI操作、LED、実CUE/Main出力は実機が必要です。
 
+Renoiseは`setup.sh`より先に一度起動し、Windows data directoryを作成してください。
+
 ## 初回セットアップ
 
 ```sh
 git clone https://github.com/ysugawara-cyber/renoise-ai-dj.git
 cd renoise-ai-dj
 
-python3 -m venv host/.venv
-host/.venv/bin/pip install -r requirements.txt
-
-# MIDIポート診断/拡張開発を行う場合のみ。標準bridgeでは不要です。
-# host/.venv/bin/pip install -r requirements-midi.txt
-
-cp opencode.example.json opencode.json
+./setup.sh
 ```
+
+`setup.sh`はvenv、固定Python依存、runtime directory、Renoise Tool、テストを一括準備します。詳細は`docs/fresh_install.md`を参照してください。
 
 ### OpenCode / ChatGPT OAuth
 
 1. リポジトリルートで`opencode`を起動します。
 2. `/connect`を実行し、OpenAIを選択してブラウザのChatGPT OAuth認証を完了します。
-3. `/models`で利用可能なOpenAI/Codex系のtool-calling対応モデルを選択します。
-4. 必要なら個人用`opencode.json`に`model`を追加します。公開サンプルとagent定義は特定providerへ固定していません。
+3. tracked `opencode.json`の各modelを利用できない場合は、`/models`で利用可能なtool-calling対応モデルを確認し、model IDを変更します。
+4. modelまたは設定を変更した後は、4つのOpenCode TUIを再起動します。
 
 認証情報はOpenCodeのユーザーデータ領域に保存されます。`opencode.json`や`.opencode/`へtoken/API keyを記載しないでください。設定変更後はOpenCodeを再起動してください。
 
@@ -55,15 +53,17 @@ export AIDJ_RENOISE_TOOL_DIR="/mnt/c/Users/<WindowsUser>/AppData/Roaming/Renoise
 
 `AIDJ_RENOISE_TOOL_DIR`を省略した場合、`/mnt/c/Users/*/AppData/Roaming/Renoise/V*/Scripts/Tools/`から最新候補を自動検出します。コピー後、RenoiseでTools -> Scripting -> Reload Toolsを実行します。
 
-### 空テンプレートの作成
+### ターンキーSongの作成
 
 1. Renoiseで新規ソングを開きます。
-2. `Tools -> AIDJ -> Setup -> Build or Extend 16-Scene Skeleton`を実行します。
+2. `Tools -> AIDJ -> Setup -> Build Turnkey Song (Fresh Song Only)`を実行します。
+3. `Tools -> AIDJ -> Setup -> Validate Current Song`が成功することを確認します。
 
-8 sequencer track、16 scene、各256 lineを作成します。楽器、CUE Send、FXは手動で構成し、任意の名前でXRNSを保存してください。推奨楽器名は`Kick Generator`, `Break - Bangy Bangy`, `Diode 03`, `Tension`, `Lucid Dream`, `Arp Saw Square`, `Harsh Noise`, `tv_set_mono`です。
+8 sequencer track、16 scene、各256 line、必須名instrument、簡易fallback音源、CUE/#Send、native FXを作成します。instrument名はruntime契約のため変更せず、任意の名前でXRNSを保存してください。
 
-既存の5-scene XRNSを拡張する場合は先に別名保存してから同じmenuを実行します。既存Trackと
-Pattern 1–5は保持し、不足するPattern 6–16だけを追加します。
+既存の5-scene XRNSを拡張する場合は先に別名保存し、
+`Build or Extend 16-Scene Skeleton`を実行します。既存TrackとPattern 1–5は保持し、
+不足するPattern 6–16だけを追加します。
 
 ## 環境変数
 
@@ -87,6 +87,8 @@ export AIDJ_RENOISE_OSC_BIND_HOST=0.0.0.0
 
 複数のWindowsユーザーにRenoiseが見つかる場合、自動検出は安全のため停止します。`AIDJ_RENOISE_TOOL_DIR`を明示してください。
 
+Firewall helperは`tools/windows_firewall.ps1`です。管理者PowerShellで実行します。詳細は`docs/windows_firewall.md`を参照してください。
+
 ## PC再起動後の起動順
 
 ```sh
@@ -106,6 +108,14 @@ opencode --agent dj_live_pads
 ```
 
 2回目の`start.sh`で`Renoise セッション アクティブ`を確認します。詳細は`docs/operator_manual.md`を参照してください。
+
+診断・停止・再起動:
+
+```sh
+./tools/preflight.sh --live
+./tools/stop.sh
+./tools/restart.sh
+```
 
 ## データ経路
 
@@ -130,7 +140,7 @@ outbox producerは最終`.json`へ直接書かず、`message_queue.queue_message
 | `dj_live_pads` | tracks 5, 6, 8 |
 | `dj_conductor` | scene / tempo / transport / directives |
 
-公開agentは`.opencode/agents/`、共有ルールは`.opencode/rules/`にあります。ライブ向けにbash書込を自動許可する場合は、内容を確認してから個人用`opencode.json`のpermissionを変更してください。
+agentは`.opencode/agents/`、commandsは`.opencode/commands/`、共有ルールは`.opencode/rules/`にあります。tracked `opencode.json`はライブ操作向けに書込を許可します。保守的な権限例は`opencode.example.json`です。
 
 ## MIDI (Renoise Luaが唯一の標準入力経路)
 
@@ -181,6 +191,11 @@ host/.venv/bin/python host/osc/verify_roundtrip.py
 - heartbeatは更新されるが操作が反映されない: `Tools → AIDJ → Diagnostics → OSC Internal Loopback (BPM 175)`を実行します。`OSC Status`が`received=1 last=/ai/bpm error=-`ならTool内部は正常です。
 - Internal Loopbackが`received=0`のまま: Reload Tools前のUDP socketがRenoiseプロセス内に残っている可能性があります。XRNSを保存してRenoiseを完全終了し、PowerShellの`Get-NetUDPEndpoint -LocalPort 8080 -ErrorAction SilentlyContinue`が何も返さないことを確認してから再起動します。
 - Internal Loopbackは通るがWSLから届かない: Windows Defender FirewallでRenoiseのUDP 8080を許可します。Windows 11のHyper-V Firewallが有効な環境ではWSL用規則も確認してください。
+
+## License
+
+コードと文書はMIT Licenseです。Renoise、controller資料、sample、preset、plugin等の権利は
+含みません。`LICENSE`と`THIRD_PARTY_NOTICES.md`を参照してください。
 
 ## セキュリティ
 

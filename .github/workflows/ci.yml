@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1 lua5.4
+          python -m pip install -r requirements-lock.txt
+      - name: Validate shell
+        run: bash -n start.sh setup.sh tools/install.sh tools/preflight.sh tools/stop.sh tools/restart.sh
+      - name: Python tests
+        run: python -m unittest discover -s tests/python -v
+      - name: Lua tests
+        run: |
+          lua5.4 tests/lua/test_osc_protocol.lua
+          lua5.4 tests/lua/test_skeleton.lua
+          lua5.4 tests/lua/test_fx_param.lua
+          lua5.4 tools/AIDJ/validate_dryrun.lua tests/fixtures/valid.lua
+          lua5.4 tests/lua/test_syntax.lua tools/AIDJ/*.lua tools/AIDJ/setup/*.lua
+          lua5.1 tests/lua/test_syntax.lua tools/AIDJ/*.lua tools/AIDJ/setup/*.lua
+          lua5.4 tools/AIDJ/validate_dryrun.lua tools/AIDJ/setup/build_turnkey_song.lua
+          lua5.4 tools/AIDJ/validate_dryrun.lua tools/AIDJ/setup/validate_song.lua
+      - name: Tool install smoke test
+        run: bash tests/shell/test_install.sh
+      - name: Reject bundled audio and XRNS
+        run: test -z "$(git ls-files '*.xrns' '*.wav' '*.flac' '*.aiff' '*.mp3' '*.ogg')"
+      - name: Check executable scripts
+        run: test -x setup.sh -a -x start.sh -a -x tools/install.sh -a -x tools/preflight.sh -a -x tools/stop.sh -a -x tools/restart.sh

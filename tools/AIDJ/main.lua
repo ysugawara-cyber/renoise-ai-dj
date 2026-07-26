@@ -36,6 +36,17 @@ renoise.tool():add_menu_entry {
 }
 
 renoise.tool():add_menu_entry {
+  name = "Main Menu:Tools:AIDJ:Setup:Build Turnkey Song (Fresh Song Only)",
+  invoke = function()
+    local path = renoise.tool().bundle_path .. "setup/build_turnkey_song.lua"
+    local ok, err = pcall(dofile, path)
+    if not ok then
+      renoise.app():show_warning("AIDJ turnkey build failed. Use Undo. " .. tostring(err))
+    end
+  end,
+}
+
+renoise.tool():add_menu_entry {
   name = "Main Menu:Tools:AIDJ:Setup:Build or Extend 16-Scene Skeleton",
   invoke = function()
     local path = renoise.tool().bundle_path .. "setup/build_track_skeleton.lua"
@@ -43,6 +54,17 @@ renoise.tool():add_menu_entry {
     if not ok then
       renoise.app():show_warning("AIDJ skeleton failed: " .. tostring(err))
     end
+  end,
+}
+
+renoise.tool():add_menu_entry {
+  name = "Main Menu:Tools:AIDJ:Setup:Validate Current Song",
+  invoke = function()
+    local ok, err = pcall(function()
+      local validator = dofile(renoise.tool().bundle_path .. "setup/validate_song.lua")
+      validator.run()
+    end)
+    if not ok then renoise.app():show_warning("AIDJ validation error: " .. tostring(err)) end
   end,
 }
 

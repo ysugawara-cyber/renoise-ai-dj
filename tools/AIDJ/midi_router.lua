@@ -135,13 +135,13 @@ local function apply_macro(index, msg)
   elseif index == 4 then
     pw.set_fx_param("7", 0, 0, value)
   elseif index == 5 then
-    pw.set_fx_param("7", 1, 0, value)
+    pw.set_fx_param("7", 1, 4, value)
   elseif index == 6 then
-    pw.set_fx_param("master", 0, 0, value)
+    pw.set_fx_param("master", 0, 1, value)
   elseif index == 7 then
-    pw.set_fx_param("2", 0, 0, value)
+    pw.set_fx_param("2", 0, 1, value)
   elseif index == 8 then
-    pw.set_fx_param("7", 2, 0, value)
+    pw.set_fx_param("7", 2, 2, value)
   end
 end
 

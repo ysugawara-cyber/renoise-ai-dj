@@ -6,20 +6,11 @@
 
 ```sh
 # from repo root (inside WSL)
-python3 -m venv host/.venv
-host/.venv/bin/pip install --upgrade pip
-host/.venv/bin/pip install -r requirements.txt
-cp opencode.example.json opencode.json
-export AIDJ_RENOISE_TOOL_DIR="/mnt/c/Users/<WindowsUser>/AppData/Roaming/Renoise/V3.5.4/Scripts/Tools/com.aidj.live.xrnx"
-export AIDJ_RENOISE_OSC_BIND_HOST=0.0.0.0  # Windows Renoise + WSL bridgeの場合のみ
-./tools/install.sh
-./start.sh  # bind設定をTool directoryへ永続化
+./setup.sh
+opencode auth login
 ```
 
-This creates `host/.venv/` with `python-osc` installed. All `host/osc/*` scripts
-MUST be invoked with `host/.venv/bin/python` (not system `python3`) so they find
-the `pythonosc` package.
-`osc_bind_host.txt`作成後は、再起動時に上記のbind環境変数を再exportする必要はない。
+詳細とWindows Firewall設定は`docs/fresh_install.md`を参照する。
 
 ## 1. Pre-flight / PC 再起動後の起動手順 (~5 minutes before doors)
 
@@ -43,8 +34,9 @@ Renoise ツールはロード時にそれを読む。逆順で Renoise が先に
      ログは `host/state/bridge.log`、PID は `host/state/bridge.pid`。
    - この時点で `[!] Renoise セッション未検出` が出ても正常(Renoise 未起動のため)。
 3. **Launch Renoise**
-   - 公開版はサンプル入りXRNSを同梱しない。初回のみ`docs/verification.md` §5の手順で
-     `tools/AIDJ/setup/build_track_skeleton.lua`を実行し、権利を持つ音源を割り当てて保存する。
+   - 公開版はサンプル入りXRNSを同梱しない。初回は新規Songで
+     `Tools -> AIDJ -> Setup -> Build Turnkey Song`を実行し、必要ならfallback音源を
+     権利を持つ音源へ差し替えて保存する。
    - Tools -> AIDJ -> **Start Session**.
      これで UDP **8080** の `/ai/*` 受信と **8088** への status broadcast (~10 Hz) が始まる。
      Renoise's built-in OSC server (port 8000) is NOT used by AIDJ and can stay off.
@@ -113,7 +105,7 @@ Renoise ツールはロード時にそれを読む。逆順で Renoise が先に
 ## 5. End of set
 
 1. opencode TUIs: send `/ai/transport stop`.
-2. osc_bridge: `kill $(cat host/state/bridge.pid)` (デタッチされているため Ctrl-C は効かない)。
+2. osc_bridge: `./tools/stop.sh` (デタッチされているため Ctrl-C は効かない)。
 3. Renoise: Tools -> AIDJ -> **Stop Session**.
 4. Save the XRNS with a timestamped name for archive.
 5. Backup `host/state/session.json` to docs/set-archive/<date>.json.

@@ -57,7 +57,7 @@ class BridgeConfigTest(unittest.TestCase):
             new_tool = data_dir / "V3.10/Scripts/Tools/com.aidj.live.xrnx"
             old_tool.mkdir(parents=True)
             new_tool.mkdir(parents=True)
-            with patch.object(
+            with patch.dict("os.environ", {}, clear=True), patch.object(
                 osc_bridge, "_candidate_renoise_data_dirs", return_value=[data_dir]
             ):
                 self.assertEqual(osc_bridge._detect_tool_dir(), new_tool)

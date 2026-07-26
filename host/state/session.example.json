@@ -1,0 +1,18 @@
+{
+  "bpm": 174.0,
+  "active_scene": 1,
+  "play_state": "stopped",
+  "renoise_heartbeat": 0,
+  "tracks": {
+    "1": {
+      "volume": 1.0,
+      "mute": false,
+      "solo": false,
+      "instrument": "Kick Generator",
+      "instrument_index": 0,
+      "instrument_resolved": true,
+      "locked_rows": {}
+    }
+  },
+  "tui_instances": {}
+}

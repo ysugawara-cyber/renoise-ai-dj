@@ -97,8 +97,8 @@
   サブプロジェクターがこれを解析する。複数行や `## ` プレフィックス欠落は投影を壊す。
 
 ## 環境上の注意点
-- 公開例`opencode.example.json`は`bash`/`edit`を`ask`にする。ライブ運用で`allow`へ
-  変更する場合も、個人設定に限定し公開ファイルへ秘密情報を入れないこと。
+- tracked `opencode.json`は4 TUIのmodel/variantとライブ運用権限を定義する。
+  `opencode.example.json`は`bash`/`edit`を`ask`にした保守的な代替例。いずれにも秘密情報を入れないこと。
 - `watcher.ignore` に `host/state/**` / `host/osc/outbox/**` / `tools/AIDJ/generated/**` / `*.xrns` が含まれる。
   これらへのファイル書込はリロードをトリガーしない。
 - `default_agent` は `dj_live_pads`。`--agent` 指定なしで起動すると TUI#1 になる。

@@ -14,34 +14,10 @@
 --   - FX デバイス(#Compressor / #Reverb / #Distortion 等)を fx_mapping.yaml の順に挿入
 --   - テンプレートを .xrns として File -> Save As で保存
 
-local TRACKS = {
-  {name = "drums",  color = {0xFF, 0x88, 0x44}},
-  {name = "breaks", color = {0xCC, 0xCC, 0xAA}},
-  {name = "bass",   color = {0x22, 0xCC, 0xCC}},
-  {name = "lead",   color = {0xEE, 0x33, 0x66}},
-  {name = "pads",   color = {0x88, 0x66, 0xFF}},
-  {name = "stabs",  color = {0xAA, 0x22, 0xFF}},
-  {name = "fx",     color = {0x66, 0xEE, 0xAA}},
-  {name = "vox",    color = {0xEE, 0xEE, 0x88}},
-}
-
-local SCENES = {
-  {name = "intro_amen_loop",      pattern_lines = 256},
-  {name = "drop1_breakcore_full", pattern_lines = 256},
-  {name = "hardcore_kick_run",    pattern_lines = 256},
-  {name = "breakdown_ambient",    pattern_lines = 256},
-  {name = "outro_distorted",      pattern_lines = 256},
-  {name = "jungle_switch",        pattern_lines = 256},
-  {name = "gabber_pressure",      pattern_lines = 256},
-  {name = "vox_break",            pattern_lines = 256},
-  {name = "crossbreed_drive",     pattern_lines = 256},
-  {name = "amen_overload",        pattern_lines = 256},
-  {name = "industrial_halfstep",  pattern_lines = 256},
-  {name = "rave_stab_run",        pattern_lines = 256},
-  {name = "noise_transition",     pattern_lines = 256},
-  {name = "hardcore_peak",        pattern_lines = 256},
-  {name = "final_break",          pattern_lines = 256},
-  {name = "encore",               pattern_lines = 256},
+local spec = dofile(renoise.tool().bundle_path .. "setup/spec.lua")
+local COLORS = {
+  {0xFF, 0x88, 0x44}, {0xCC, 0xCC, 0xAA}, {0x22, 0xCC, 0xCC}, {0xEE, 0x33, 0x66},
+  {0x88, 0x66, 0xFF}, {0xAA, 0x22, 0xFF}, {0x66, 0xEE, 0xAA}, {0xEE, 0xEE, 0x88},
 }
 
 local PATTERN_LINES = 256
@@ -63,7 +39,7 @@ end
 local function is_blank_song()
   local song = renoise.song()
   local sequence = song.sequencer.pattern_sequence
-  if #sequence ~= 1 or count_seq_tracks() > 1 then return false end
+  if #sequence ~= 1 or count_seq_tracks() > 8 then return false end
   local pattern_index = song.sequencer:pattern(1)
   return pattern_index ~= nil and song:pattern(pattern_index).is_empty
 end
@@ -75,23 +51,30 @@ local function ensure_tracks()
     return
   end
   local song = renoise.song()
-  local master_idx = #song.tracks
   while count_seq_tracks() < 8 do
-    song:insert_track_at(master_idx)
+    local master_idx = nil
+    for index, track in ipairs(song.tracks) do
+      if track.type == renoise.Track.TRACK_TYPE_MASTER then master_idx = index end
+    end
+    if not master_idx or master_idx < 2 then error("invalid Master Track position") end
+    local inserted = song:insert_track_at(master_idx - 1)
+    if inserted.type ~= renoise.Track.TRACK_TYPE_SEQUENCER then
+      error("failed to insert Sequencer Track")
+    end
   end
   log("inserted up to 8 sequencer tracks")
 end
 
 local function name_and_color_tracks()
   local song = renoise.song()
-  for i, t in ipairs(TRACKS) do
+  for i, name in ipairs(spec.tracks) do
     local ok, tr = pcall(function() return song:track(i) end)
     if not ok or not tr then
       log("track " .. i .. " not found, naming skipped")
     else
-      tr.name = t.name
+      tr.name = name
       if tr.color then
-        tr.color = t.color
+        tr.color = COLORS[i]
       end
     end
   end
@@ -103,7 +86,7 @@ local function ensure_scenes(initialize_existing)
   local seq = song.sequencer
   local pat_seq = seq.pattern_sequence
   local original_count = #pat_seq
-  local need = math.max(0, #SCENES - #pat_seq)
+  local need = math.max(0, #spec.scenes - #pat_seq)
   local inserted_patterns = {}
   for _ = 1, need do
     local slot = #seq.pattern_sequence + 1
@@ -111,17 +94,17 @@ local function ensure_scenes(initialize_existing)
     inserted_patterns[slot] = new_pattern_index
     local pat = song:pattern(new_pattern_index)
     if pat and pat.number_of_lines ~= PATTERN_LINES then
-      pcall(function() pat.number_of_lines = PATTERN_LINES end)
+      pat.number_of_lines = PATTERN_LINES
     end
   end
   pat_seq = seq.pattern_sequence
-  for slot = 1, math.min(#pat_seq, #SCENES) do
+  for slot = 1, math.min(#pat_seq, #spec.scenes) do
     local pattern_index = inserted_patterns[slot] or seq:pattern(slot)
     local pat = pattern_index and song:pattern(pattern_index) or nil
     local recover_partial = slot > 5 and pat and pat.is_empty and (pat.name or "") == ""
     if pat and (initialize_existing or slot > original_count or recover_partial) then
-      pcall(function() pat.number_of_lines = SCENES[slot].pattern_lines end)
-      pcall(function() pat.name = SCENES[slot].name end)
+      pat.number_of_lines = PATTERN_LINES
+      pat.name = spec.scenes[slot]
     end
   end
   log("added " .. need .. " scenes; existing patterns preserved=" .. tostring(not initialize_existing))
@@ -145,4 +128,5 @@ end
 local ok, err = pcall(main)
 if not ok then
   renoise.app():show_warning("AIDJ skeleton failed: " .. tostring(err))
+  error(err, 0)
 end
