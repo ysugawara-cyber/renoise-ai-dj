@@ -7,9 +7,11 @@ SCRIPT="$ROOT/host/osc/osc_bridge.py"
 
 find_bridge_pid() {
   python3 - "$SCRIPT" <<'PY'
-import pathlib, sys
+import os, pathlib, sys
 script = sys.argv[1]
 for path in pathlib.Path("/proc").glob("[0-9]*/cmdline"):
+    if path.parent.name == str(os.getpid()):
+        continue
     try:
         args = [part.decode() for part in path.read_bytes().split(b"\0") if part]
     except (OSError, UnicodeDecodeError):

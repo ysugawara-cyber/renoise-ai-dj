@@ -39,9 +39,11 @@ fi
 # (例: py_compile 経由の起動)に誤マッチして起動スキップする事故があった
 find_bridge_pid() {
     python3 - "$BRIDGE" <<'PY'
-import pathlib, sys
+import os, pathlib, sys
 script = sys.argv[1]
 for path in pathlib.Path("/proc").glob("[0-9]*/cmdline"):
+    if path.parent.name == str(os.getpid()):
+        continue
     try:
         args = [part.decode() for part in path.read_bytes().split(b"\0") if part]
     except (OSError, UnicodeDecodeError):
