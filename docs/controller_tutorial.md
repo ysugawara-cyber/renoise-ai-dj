@@ -2,6 +2,7 @@
 
 APC mini mk2とAKAI MIDImixの操作を、既存パターンを壊さず段階的に確認する。
 最初にXRNSを`AIDJ-controller-practice.xrns`として別名保存すること。
+全controlの配置図は`docs/controller_map.md`を参照する。
 
 ## 0. Preparation
 
@@ -45,11 +46,11 @@ CUEが動かない場合は、名前に`cue`を含むSend Trackと各Trackの`#S
 | 1 | BPM | 174付近から少しだけ動かす |
 | 2 | Swing | 0から少し上げてbreakの跳ねを聴く |
 | 3 | Master Pan | 中央から左右へ小さく動かす |
-| 4 | Track 7 Reverb | noise tailを伸ばす |
-| 5 | Track 7 Delay | transitionだけ反復させる |
-| 6 | Master Filter | breakdownで閉じ、drop前に開く |
-| 7 | Track 2 Distortion | breakを荒くする |
-| 8 | Track 7 Bitcrush | drop直前だけdigitalに崩す |
+| 4 | Track 7 Reverb Send | noise tailを伸ばす |
+| 5 | Track 7 Delay Send | transitionだけ反復させる |
+| 6 | Master Filter Cutoff | breakdownで閉じ、drop前に開く |
+| 7 | Track 2 Distortion Drive | breakを荒くする |
+| 8 | Track 7 Cabinet Distortion | drop直前だけ荒くする |
 
 テスト後はBPM、Pan、Filterを通常位置へ戻す。
 

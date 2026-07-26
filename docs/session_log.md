@@ -22,7 +22,8 @@
 - REC/ARM (Solo): notes 3,6,9,12,15,18,21,24 → note%3==0
 - 上段ノブ: Track 1-8 Pan
 - 中段ノブ: Track 1-8 CUE Level
-- 下段ノブ: BPM, Swing, MasterPan, Reverb, Delay, Filter, Distortion, Bitcrush
+- 下段ノブ: BPM, Swing, MasterPan, Reverb Send, Delay Send, Filter Cutoff,
+  Distortion Drive, Cabinet Distortion (`bitcrush` macro alias)
 - フェーダー: CC 19,23,27,31,49,53,57,61 → Track 1-8 Volume
 - マスターフェーダー: CC 62 → Master Volume
 

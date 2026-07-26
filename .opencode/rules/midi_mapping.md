@@ -134,11 +134,11 @@ APC mini mk2 公式プロトコル (v1.0) 準拠:
 | 1 | 18 | BPM 120–240 |
 | 2 | 22 | Swing 0–1 |
 | 3 | 26 | Master Pan |
-| 4 | 30 | Track 7 Reverb |
-| 5 | 48 | Track 7 Delay |
-| 6 | 52 | Master Filter |
-| 7 | 56 | Track 2 Distortion |
-| 8 | 60 | Track 7 Bitcrush |
+| 4 | 30 | Track 7 Reverb Send |
+| 5 | 48 | Track 7 Delay Send |
+| 6 | 52 | Master Filter Cutoff |
+| 7 | 56 | Track 2 Distortion Drive |
+| 8 | 60 | Track 7 Cabinet Distortion |
 
 - 値域: 0–127
 - 内部変換: `msg.value * 1000 / 127` (int×1000 規約)

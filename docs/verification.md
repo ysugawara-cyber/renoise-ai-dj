@@ -107,8 +107,8 @@ host/.venv/bin/python host/osc/send.py /ai/fx/macro send_reverb 250
 ### 4.2 Knobs (Renoise Lua直接処理)
 - 上段`16,20,24,28,46,50,54,58` → Track 1..8 Pan。
 - 中段`17,21,25,29,47,51,55,59` → Track 1..8 CUE Level。
-- 下段`18,22,26,30,48,52,56,60` → BPM / Swing / Master Pan / Reverb /
-  Delay / Master Filter / Distortion / Bitcrush。
+- 下段`18,22,26,30,48,52,56,60` → BPM / Swing / Master Pan / Reverb Send /
+  Delay Send / Master Filter Cutoff / Distortion Drive / Cabinet Distortion。
 - CUEとFXは現在のXRNS device構成と照合して手動確認する。
 - bridge側MIDI listenerは標準で無効。WSLからUSB MIDIへアクセスしない。
 

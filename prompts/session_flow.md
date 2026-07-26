@@ -140,5 +140,5 @@ conductor: 停止して
 | ノブ 5 | Send Delay |
 | ノブ 6 | Filter Cutoff |
 | ノブ 7 | Distortion |
-| ノブ 8 | Bitcrush |
+| ノブ 8 | Track 7 Cabinet Distortion (`bitcrush` macro alias) |
 | マスターフェーダー | Master Volume |
