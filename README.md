@@ -160,6 +160,8 @@ Renoise MIDI Mapping XMLは使用しません。Lua Toolがデバイスを直接
 全割当の配置図は`docs/controller_map.md`、初回の操作練習は
 `docs/controller_tutorial.md`を参照してください。
 
+ライブ中に貼り付けるprompt集は`prompts/README.md`から選べます。
+
 ## 設定ファイルの役割
 
 - `config/macros.yaml`: bridgeが`/ai/fx/macro`を展開する**実行設定**。ハードウェアCCは定義しません。

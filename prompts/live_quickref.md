@@ -1,99 +1,79 @@
-# AIDJ ライブ用 日本語プロンプト集
+# AIDJ Live Quick Reference
 
-## conductor (TUI#4) — グローバル指揮
+1行を指定されたTUIへそのまま貼る。詳細版は`prompts/library.md`を参照する。
 
-```
-BPMを180に設定して
-BPMを200に設定して
-BPMを174までゆっくり下げて
-swingを0.3に設定して
-シーン1に切り替えて
-シーン2に切り替えて
+## TUI#4 Conductor
+
+```text
 再生して
 停止して
-ループ再生にして
-ループ解除して
-全トラックのボリュームを0.8に設定して
+Pattern Loopをオンにして
+Pattern Loopを解除して
+BPMを174へ10 BPM/秒以下でランプして
+ハードカットでBPMを140にして
+Scene 1へ切り替えて
+Scene 2へ切り替え、標準BPM 180へランプして
+Scene 14へ切り替え、標準BPM 220へランプして
+Master volumeを0.8にして
+Track 1と2を今すぐミュートして
+全Trackのミュートを解除して
 ```
 
-## drums (TUI#3) — Track 1,2
+## TUI#4 Scene Preparation
 
-```
-# キック 4つ打ち
-トラック1にC-4のキックを4つ打ちで1小節分書いて
-
-# キック 高速
-トラック1にC-4のキックを8分で2小節分書いて。1拍目と3拍目を強く
-
-# スネア
-トラック2にスネアを2拍目と4拍目に入れて
-
-# ハイハット
-トラック2にハイハットを16分で1小節分書いて。ベロシティをランダムに
-
-# amen break 風
-トラック2にアーメンブレイク風のスネアラッシュを書いて
-
-# クリア
-トラック1の現在のパターンをクリアして
+```text
+停止してScene 2へ切り替え、現在選択中のScene 2を仕込んで。tui3はTrack 1,2、tui2はTrack 3,4,7、tui1はTrack 8を担当。180 BPM、256行で作って
+停止してScene 4へ切り替え、現在選択中のScene 4を仕込んで。tui3はTrack 2、tui2はTrack 7、tui1はTrack 5,8を担当。140 BPM half-timeで余白を残して
+停止してScene 14へ切り替え、現在選択中のScene 14を仕込んで。tui3はTrack 1,2、tui2はTrack 3,4,7、tui1はTrack 8を担当。220 BPM、全行埋めは禁止
 ```
 
-## bass (TUI#2) — Track 3,4,7
+directive発行後、TUI#1、TUI#2、TUI#3で次を実行する。
 
-```
-# リースベース
-トラック3にC-2のリースベースを8分音符で書いて
-
-# サブベース
-トラック3にサブベースをC-1で書いて
-
-# オフビートベース
-トラック3にオフビートでリースベースを書いて
-
-# レイヴスタブ
-トラック4にレイヴスタブをC-4で書いて
-
-# ディストーション強め
-トラック7のdistortionを強くして
-
-# フィルタースイープ
-トラック3にフィルタースイープをかけて
-
-# アシッドリード
-トラック4にアシッド風のリードを16分で書いて
+```text
+/d
 ```
 
-## pads (TUI#1) — Track 5,6,8
+## TUI#3 Drums / Breaks
 
-```
-# ロングパッド
-トラック5にC-3のパッドを長く伸ばして
-
-# コード進行パッド
-トラック5にCマイナーのパッド進行を書いて
-
-# スタブ
-トラック6にC-5のレイヴスタブを書いて
-
-# ボーカルサンプル
-トラック8にtv_set_monoでボーカルカットを入れて
-
-# アトモスフェリック
-トラック5に暗いパッドを長く伸ばして
+```text
+空SceneならTrack 1と2を256行で作って。Kick GeneratorとBreak - Bangy Bangyを使い、16小節で密度とvelocityを変化させて
+Track 1をhardcore kick中心にして、1拍目と3拍目を最も強くして
+Track 2をamen edit中心にして、2拍目と4拍目のsnareを強調して
+Track 2の行224〜255だけsnare rushを追加して
+Track 1の行64〜127をキック抜きにして、Track 2だけで緊張感を保って
+Track 1の行128〜191をgabber kick runへ差し替えて
 ```
 
-## セクション進行 (conductor)
+## TUI#2 Bass / Lead / FX
 
+```text
+空SceneならTrack 3,4,7を256行で作って。Diode 03のReese、Tensionの短いstab、Harsh Noiseの転換FXを使って
+Track 3をC-2中心のoffbeat Reeseにして、キックとぶつからない位置へずらして
+Track 4に短いrave stabを裏拍中心で配置して
+Track 7にriser、impact、noise cutを合計6発だけ配置して
+send_reverbを0.6にして
+send_delayを0.7にして
+Track 7のbitcrushを0.6にして
+Track 3の行96〜127を一度クリアして余白を作って
 ```
-# ビルドアップ
-BPMを160から200まで8小節かけて上げて。シーンは1のまま
 
-# ドロップ
-BPM200でシーン2に切り替えて。全トラック最大ボリューム
+## TUI#1 Pads / Stabs / Vox
 
-# ブレイクダウン
-BPMを140に落としてシーン4に切り替え。トラック1,2をミュート解除
+```text
+空SceneならTrack 5,6,8を256行で作って。padは長く、stabは短く、voxは2〜6発にして
+Track 5にLucid Dreamで暗いC minorのlong padを作って
+Track 6にArp Saw Squareで短いrave stabを裏拍へ配置して
+Track 8にtv_set_monoのvox chopを4発だけ配置し、各4〜12行後にOFFを入れて
+Track 8の行96〜127へvox chopを2発だけ追加して
+Track 5の密度を半分にして余白を増やして
+```
 
-# アウトロ
-BPMを120までゆっくり下げて。トラック5だけ残して他をミュート
+## Emergency
+
+TUI#4:
+
+```text
+今すぐ停止して
+Master volumeを0にして
+全Trackをミュートして
 ```

@@ -1,144 +1,178 @@
-# AIDJ Live セッションフロー
-# 2026/08/07 文化創造館 TD練習会用
+# AIDJ 16-Scene Session Flow
 
-## シーン構成
+現行16 Sceneを安全に事前生成し、ライブで順番にlaunchするためのコピペ手順。
 
-| Scene | 名前 | 用途 | BPM |
-|-------|------|------|-----|
-| 1 | intro_amen_loop | 導入 / amen break ループ | 174 |
-| 2 | drop1_breakcore_full | メインドロップ / 全トラック全力 | 200 |
-| 3 | hardcore_kick_run | ハードコアセクション / キック疾走 | 210 |
-| 4 | breakdown_ambient | ブレイクダウン / アンビエント | 140 |
-| 5 | outro_distorted | アウトロ / 歪み崩壊 | 120 |
+## Scene Map
 
-## パターン生成の基本方針
+| Scene | Name | BPM | Tracks | Character |
+|---:|---|---:|---|---|
+| 1 | intro_amen_loop | 174 | 1,2,5 | amen intro |
+| 2 | drop1_breakcore_full | 180 | 1,2,3,4,7,8 | full breakcore drop |
+| 3 | hardcore_kick_run | 210 | 1,3,4,5,7 | hardcore run |
+| 4 | breakdown_ambient | 140 | 2,5,7,8 | half-time breakdown |
+| 5 | outro_distorted | 220 | 1,2,3,7,8 | distorted exit |
+| 6 | jungle_switch | 176 | 2,3,7,8 | chopped jungle |
+| 7 | gabber_pressure | 210 | 1,3,4,7 | dense gabber |
+| 8 | vox_break | 174 | 2,5,8 | sparse vox break |
+| 9 | crossbreed_drive | 190 | 1,2,3,7 | crossbreed drive |
+| 10 | amen_overload | 180 | 1,2,3,7,8 | maximum amen edits |
+| 11 | industrial_halfstep | 145 | 1,2,5,7 | industrial bridge |
+| 12 | rave_stab_run | 200 | 1,3,4,6,8 | rave stab run |
+| 13 | noise_transition | 180 | 5,7,8 | 16-bar transition |
+| 14 | hardcore_peak | 220 | 1,2,3,4,7,8 | peak section |
+| 15 | final_break | 174 | 2,5,7,8 | 16-bar decompression |
+| 16 | encore | 200 | 1–8 | full-stack encore |
 
-- **ライブ中は順次生成(ローリング)**。`drums → bass+fx → pads+vox` の順に
-  1 プロンプト = 1 レイヤーで重ねる:
-  1. `tui3 (drums)`: キック / ブレイクの土台
-  2. `tui2 (bass/fx)`: キックに合わせたベース + 転換点だけTrack 7 FX
-  3. `tui1 (pads/vox)`: パッド / スタブ + 余白を残したTrack 8 vox chop
-  - 各層でリスニングしながら修正指示を挟む(「キックを詰めて」「ベースを控えめに」等)。
-  - **8 トラック一括生成はしない**。理由: LLM 応答の肥大で遅延・質低下、
-    再生中パターンへの大量書込で「書きかけ」が可聴化、失敗時に全トラック半壊、
-    トラック所有権の侵犯(投影ステータス行も壊れる)。
-- **シーン仕込み / セット転換は擬似バッチ**。conductor が tui1/2/3 へ
-  directive を一斉発行(1 回の `python3 -c`)し、オペレーターが各 TUI を
-  順に回して消化させる。一括生成に近い速度感で所有権も保てる。
-  - 例: conductor に「シーン2を仕込んで: amen崩し + リース + ステラパッド + 転換FX + vox chop、D minor」
+256行PatternはLPB=4で16小節。32小節Sceneは同じPatternを2周して使う。
 
-## セット進行
+## Safe Preparation Rule
 
-### 0. プリセット (Start Session 直後)
-- Conductor: BPM 174 に設定
-- Conductor: シーン 1 に設定
-- APC: Row 0 (Scene Launch) の Scene 1 パッド押下で開始準備
-- MIDImix: 全トラック MUTE 解除、volume 中程度
+`/ai/pattern/write`はScene IDを持たず、停止中はRenoiseのedit positionへ書く。
+別Sceneを仕込むときは、必ず次の順番を守る。
 
-### 1. イントロ (0:00 - 1:30)
+1. TUI#4へ「停止して対象Sceneへ切り替え、現在選択中のSceneを仕込んで」と貼る。
+2. TUI#4がScene切替とdirective発行を完了するまで待つ。
+3. TUI#1、TUI#2、TUI#3で`/d`を1回ずつ実行する。
+4. 生成結果を確認してから次のSceneを仕込む。
+
+演奏中に非アクティブSceneを裏で生成しない。ライブ中の修正は現在再生中のSceneだけに行う。
+
+## Scene Preparation Prompts: TUI#4
+
+### Scene 1
+
+```text
+停止してScene 1へ切り替え、現在選択中のScene 1を仕込んで。tui3はTrack 1,2で疎なamen introを作りkickは後半から、tui1はTrack 5のdark pad、tui2は休止。174 BPM、256行で作って
 ```
-conductor: BPMを174に設定して
-conductor: シーン1に切り替えて
-drums:   トラック2にアーメンブレイクを書いて
-bass:    トラック3にC-2のリースベースを控えめに
-```
-- 雰囲気を作る。キックはまだ入れない
-- amen break だけを 174 BPM でループ
-- ベースは控えめ (vel 70)
 
-### 2. ビルドアップ (1:30 - 2:30)
-```
-conductor: BPMを174から195まで上げて
-drums:   トラック1にC-4のキック4つ打ちを入れて
-drums:   トラック2にハイハットを16分で追加して
-bass:    トラック3のリースベースを強くして (vel 110)
-pads:    トラック5に暗いパッドを伸ばして
-bass:    トラック7にビルド終端のriserを薄く追加して
-pads:    トラック8に短いvox chopを2発だけ追加して
-```
-- BPM を 3-4 小節かけてランプアップ
-- キックが入り、エネルギーが上がる
-- ハイハットがテンションを上げる
+### Scene 2
 
-### 3. ドロップ 1 (2:30 - 4:00)
+```text
+停止してScene 2へ切り替え、現在選択中のScene 2を仕込んで。tui3はTrack 1,2、tui2はTrack 3,4,7、tui1はTrack 8を担当。180 BPMのfull breakcore dropを256行で作って
 ```
-conductor: BPM200でシーン2に切り替えて
-drums:   トラック1にC-4キックを高速で。ベロシティMAX
-drums:   トラック2にスネアラッシュを入れて
-bass:    トラック3に歪んだリースベースを。distortion ON
-pads:    トラック6にC-5のレイヴスタブを入れて
-bass:    トラック7にdrop直前riserと頭のimpactを追加して
-pads:    トラック8にoffbeatのvox shoutを4発追加して
-```
-- フルパワー。全トラック稼働
-- APC: 行 5-7 のエフェクトをポン出しで遊ぶ
-- MIDImix: ノブで distortion/フィルターを操作
 
-### 4. ハードコアラン (4:00 - 5:30)
-```
-conductor: BPM210でシーン3に切り替えて
-drums:   トラック1に超高速キック連打
-bass:    トラック3にオフビートベース
-```
-- BPM 最大。キックが疾走する
-- ベースはオフビートで跳ねる
+### Scene 3
 
-### 5. ブレイクダウン (5:30 - 7:00)
+```text
+停止してScene 3へ切り替え、現在選択中のScene 3を仕込んで。tui3はTrack 1のhardcore kick run、tui2はTrack 3,4,7、tui1はTrack 5の薄いpadを担当。210 BPM、256行で作って
 ```
-conductor: BPMを140まで落としてシーン4に切り替え
-drums:   トラック1のキックを削除/ミュート
-bass:    トラック3をミュート
-pads:    トラック5にアトモスフェリックパッド
+
+### Scene 4
+
+```text
+停止してScene 4へ切り替え、現在選択中のScene 4を仕込んで。tui3はTrack 2を疎に、tui2はTrack 7、tui1はTrack 5,8を担当。140 BPM half-timeでnegative spaceを大きくして
 ```
-- 急激に落とす。空間を作る
-- パッドだけが残る
-- 緊張感を保つ
 
-### 6. ドロップ 2 (7:00 - 8:30)
+### Scene 5
+
+```text
+停止してScene 5へ切り替え、現在選択中のScene 5を仕込んで。tui3はTrack 1,2、tui2はTrack 3,7、tui1はTrack 8を担当。220 BPMのdistorted exitを作り、後半8小節でbreakとFXを減らして
 ```
-conductor: BPM200でシーン2に切り替え
-drums:   全トラック最大で書いて
-bass:    ディストーションベース戻し
+
+### Scene 6
+
+```text
+停止してScene 6へ切り替え、現在選択中のScene 6を仕込んで。tui3はTrack 2、tui2はTrack 3,7、tui1はTrack 8を担当。176 BPMのchopped jungleを256行で作って
 ```
-- 再ドロップ。1回目より激しく
 
-### 7. アウトロ (8:30 - 10:00)
+### Scene 7
+
+```text
+停止してScene 7へ切り替え、現在選択中のScene 7を仕込んで。tui3はTrack 1、tui2はTrack 3,4,7、tui1は休止。210 BPMのdense gabber pressureを256行で作って
 ```
-conductor: BPMを120までゆっくり下げてシーン5に切り替え
-drums:   トラック1,2をミュート
-pads:    トラック5だけ残す。徐々にvolume下げて
-conductor: 停止して
+
+### Scene 8
+
+```text
+停止してScene 8へ切り替え、現在選択中のScene 8を仕込んで。tui3はTrack 2を疎に、tui1はTrack 5,8、tui2は休止。174 BPMのvox-led breakを256行で作って
 ```
-- BPM をゆっくり下げる
-- トラックを順にミュート
-- 最後はパッドだけの余韻で終了
 
-## APC 操作ガイド（演奏中）
+### Scene 9
 
-| 操作 | 効果 |
-|------|------|
-| 行 0 (最上段) パッド | シーン切替 |
-| 行 1-4 パッド | パターンシーケンスジャンプ |
-| 行 5 押下中 | ループ (stutter) |
-| 行 6 押下中 | Distortion ON |
-| 行 7 押下中 | トラック Mute |
-| SCENE LAUNCH ボタン | シーン切替 |
-| FADER CTRL 1/2 | Play / Stop |
-| フェーダー | Track Volume |
+```text
+停止してScene 9へ切り替え、現在選択中のScene 9を仕込んで。tui3はTrack 1,2、tui2はTrack 3,7、tui1は休止。190 BPMのcrossbreed driveを作り、後半8小節で密度を上げて
+```
 
-## MIDImix 操作ガイド（演奏中）
+### Scene 10
 
-| 操作 | 効果 |
-|------|------|
-| MUTE ボタン | トラック Mute トグル |
-| REC/ARM ボタン | トラック Solo トグル |
-| フェーダー | Track Volume |
-| ノブ 1 | BPM |
-| ノブ 2 | Swing |
-| ノブ 3 | Master Pan |
-| ノブ 4 | Send Reverb |
-| ノブ 5 | Send Delay |
-| ノブ 6 | Filter Cutoff |
-| ノブ 7 | Distortion |
-| ノブ 8 | Track 7 Cabinet Distortion (`bitcrush` macro alias) |
-| マスターフェーダー | Master Volume |
+```text
+停止してScene 10へ切り替え、現在選択中のScene 10を仕込んで。tui3はTrack 1,2のamen edit、tui2はTrack 3,7、tui1はTrack 8を担当。180 BPM、後半ほどeditを細かくして
+```
+
+### Scene 11
+
+```text
+停止してScene 11へ切り替え、現在選択中のScene 11を仕込んで。tui3はTrack 1,2、tui2はTrack 7、tui1はTrack 5を担当。145 BPMの重く疎なindustrial halfstepにして
+```
+
+### Scene 12
+
+```text
+停止してScene 12へ切り替え、現在選択中のScene 12を仕込んで。tui3はTrack 1、tui2はTrack 3,4、tui1はTrack 6,8を担当。200 BPMのrave stab runを256行で作って
+```
+
+### Scene 13
+
+```text
+停止してScene 13へ切り替え、現在選択中のScene 13を仕込んで。tui2はTrack 7のriser/impact、tui1はTrack 5,8、tui3は休止。180 BPM、16小節のnoise transitionにして
+```
+
+### Scene 14
+
+```text
+停止してScene 14へ切り替え、現在選択中のScene 14を仕込んで。tui3はTrack 1,2、tui2はTrack 3,4,7、tui1はTrack 8を担当。220 BPMのhardcore peakを256行で作って
+```
+
+### Scene 15
+
+```text
+停止してScene 15へ切り替え、現在選択中のScene 15を仕込んで。tui3はTrack 2、tui2はTrack 7、tui1はTrack 5,8を担当。174 BPM、16小節のdecompression breakにして
+```
+
+### Scene 16
+
+```text
+停止してScene 16へ切り替え、現在選択中のScene 16を仕込んで。全TUIが所有Trackだけを担当し、200 BPMのfull-stack encoreを256行で作って
+```
+
+各Scene promptの後、TUI#1–3で実行する。
+
+```text
+/d
+```
+
+## Performance Launch Order: TUI#4
+
+事前生成後の一例。以下はScene launchとtempoだけを操作し、Pattern生成は行わない。
+
+```text
+Scene 1へ切り替え、BPM 174にして再生して
+Scene 6へ切り替え、BPM 176へランプして
+Scene 2へ切り替え、BPM 180にして
+Scene 3へ切り替え、BPM 210へ10 BPM/秒以下でランプして
+Scene 4へハードカットし、BPM 140にして
+Scene 9へ切り替え、BPM 190へランプして
+Scene 11へハードカットし、BPM 145にして
+Scene 12へ切り替え、BPM 200へランプして
+Scene 13へ切り替え、filter_cutoffを0.3から0.9へスイープして
+Scene 14へ切り替え、BPM 220へランプして
+Scene 15へ切り替え、BPM 174へランプして
+Scene 16へ切り替え、BPM 200へランプして
+Scene 5へ切り替え、BPM 220にして
+Master volumeを0.8から0へゆっくり下げて、最後に停止して
+```
+
+## Current Scene Live Corrections
+
+演奏中は現在Sceneだけを対象に、担当TUIへ短い修正を貼る。
+
+```text
+[TUI#3] 現在SceneのTrack 2だけ密度を半分にして
+[TUI#2] 現在SceneのTrack 7にimpactを1発だけ追加して
+[TUI#1] 現在SceneのTrack 8に短いvox chopを1発だけ追加して
+[TUI#4] 現在SceneをキープしてPattern Loopをオンにして。16小節後の解除は別指示で行う
+```
+
+## Controller Reference
+
+APC mini mk2とMIDImixの現行割当は`docs/controller_map.md`を参照する。Scene 9–16はAPCのSHIFTと右側SCENE LAUNCHを併用する。
