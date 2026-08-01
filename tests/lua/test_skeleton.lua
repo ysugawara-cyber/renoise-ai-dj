@@ -62,6 +62,7 @@ renoise = {
 
 dofile("tools/AIDJ/setup/build_track_skeleton.lua")
 local spec = dofile("tools/AIDJ/setup/spec.lua")
+local runtime_config = dofile("tools/AIDJ/config.lua")
 
 local sequencer_tracks = 0
 for _, track in ipairs(song.tracks) do
@@ -79,4 +80,14 @@ for index, name in ipairs(spec.tracks) do
 end
 assert(#song.tracks == 9 and song.tracks[9].type == MASTER, "track structure mismatch")
 assert(#patterns == 16, "expected 16 patterns")
+for index, name in ipairs(spec.instruments) do
+  assert(runtime_config.track_instruments[index] == name, "instrument config mismatch")
+end
+
+patterns[1].is_empty = false
+patterns[1].number_of_lines = 64
+patterns[1].name = "existing_pattern"
+dofile("tools/AIDJ/setup/build_track_skeleton.lua")
+assert(patterns[1].number_of_lines == 256, "existing short pattern was not extended")
+assert(patterns[1].name == "existing_pattern", "existing pattern name was overwritten")
 print("OK: skeleton")

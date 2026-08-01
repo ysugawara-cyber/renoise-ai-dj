@@ -88,6 +88,7 @@ local function ensure_scenes(initialize_existing)
   local original_count = #pat_seq
   local need = math.max(0, #spec.scenes - #pat_seq)
   local inserted_patterns = {}
+  local extended_patterns = 0
   for _ = 1, need do
     local slot = #seq.pattern_sequence + 1
     local new_pattern_index = seq:insert_new_pattern_at(slot)
@@ -102,12 +103,17 @@ local function ensure_scenes(initialize_existing)
     local pattern_index = inserted_patterns[slot] or seq:pattern(slot)
     local pat = pattern_index and song:pattern(pattern_index) or nil
     local recover_partial = slot > 5 and pat and pat.is_empty and (pat.name or "") == ""
+    if pat and pat.number_of_lines < PATTERN_LINES then
+      pat.number_of_lines = PATTERN_LINES
+      extended_patterns = extended_patterns + 1
+    end
     if pat and (initialize_existing or slot > original_count or recover_partial) then
       pat.number_of_lines = PATTERN_LINES
       pat.name = spec.scenes[slot]
     end
   end
-  log("added " .. need .. " scenes; existing patterns preserved=" .. tostring(not initialize_existing))
+  log("added " .. need .. " scenes; extended short patterns=" .. extended_patterns ..
+    "; existing pattern data preserved=" .. tostring(not initialize_existing))
 end
 
 local function main()
@@ -120,9 +126,9 @@ local function main()
   ensure_tracks()
   if initialize_existing then name_and_color_tracks() end
   ensure_scenes(initialize_existing)
-  log("done -- manual steps: instruments, CUE bus (normally #10), FX devices, save as .xrns")
+  log("done -- existing instruments unchanged; use Build Turnkey Song for fallback instruments")
   renoise.app():show_status(
-    "AIDJ skeleton built. See log for manual steps (instruments, CUE bus, FX).")
+    "AIDJ skeleton built. Existing instruments unchanged; short scenes extended to 256 lines.")
 end
 
 local ok, err = pcall(main)
